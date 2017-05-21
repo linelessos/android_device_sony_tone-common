@@ -147,12 +147,12 @@ int fpc_set_auth_challenge(int64_t __unused challenge)
     return send_normal_command(FPC_SET_AUTH_CHALLENGE,0,mFPCHandle);
 }
 
-int64_t fpc_load_auth_challenge()
+int64_t fpc_load_auth_challenge(fpc_imp_data_t *data)
 {
     return get_int64_command(FPC_GET_AUTH_CHALLENGE,0,mFPCHandle);
 }
 
-int64_t fpc_load_db_id()
+int64_t fpc_load_db_id(fpc_imp_data_t *data)
 {
     return get_int64_command(FPC_GET_DB_ID,0,mFPCHandle);
 }
