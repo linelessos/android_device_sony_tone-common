@@ -572,6 +572,19 @@ err_t fpc_get_user_db_length(fpc_imp_data_t __unused *data)
     return 0;
 }
 
+err_t fpc_load_empty_db(fpc_imp_data_t *data) {
+    err_t result;
+    fpc_data_t *ldata = (fpc_data_t*)data;
+
+    result = send_normal_command(ldata, FPC_LOAD_EMPTY_DB);
+    if(result)
+    {
+        ALOGE("Error creating new empty database: %d\n", result);
+        return result;
+    }
+    return 0;
+}
+
 
 err_t fpc_load_user_db(fpc_imp_data_t *data, char* path)
 {
@@ -579,19 +592,8 @@ err_t fpc_load_user_db(fpc_imp_data_t *data, char* path)
     struct stat sb;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    if(stat(path, &sb) == -1)
-    {
-        result = send_normal_command(ldata, FPC_LOAD_EMPTY_DB);
-        if(result)
-        {
-            ALOGE("Error creating new empty database: %d\n", result);
-            return result;
-        }
-    } else
-    {
-       ALOGD("Loading user db from %s\n", path);
-        result = send_buffer_command(ldata, FPC_GROUP_DB, FPC_LOAD_DB, (const uint8_t*)path, (uint32_t)strlen(path)+1);
-    }
+    ALOGD("Loading user db from %s\n", path);
+    result = send_buffer_command(ldata, FPC_GROUP_DB, FPC_LOAD_DB, (const uint8_t*)path, (uint32_t)strlen(path)+1);
     return result;
 }
 

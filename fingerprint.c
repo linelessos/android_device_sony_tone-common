@@ -27,6 +27,7 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include <byteswap.h>
+#include <sys/stat.h>
 #include "fpc_imp.h"
 
 
@@ -353,21 +354,31 @@ static int fingerprint_set_active_group(struct fingerprint_device *dev,
                                         uint32_t gid, const char *store_path)
 {
     int result;
+    struct stat sb;
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
 
     #ifdef FPC_DB_PER_GID
-    sprintf(db_path,"%s/data_%d.db", store_path, gid);
+    sprintf(sdev->db_path,"%s/data_%d.db", store_path, gid);
     #else
     sprintf(sdev->db_path,"%s/user.db", store_path);
     #endif
     sdev->gid = gid;
 
     ALOGI("%s : storage path set to : %s",__func__, sdev->db_path);
-    if((result = fpc_load_user_db(sdev->fpc, sdev->db_path)) != 0)
-    {
-        ALOGE("Error loading user database: %d\n", result);
-        return result;
+    if(stat(sdev->db_path, &sb) == -1) {
+        // No existing database, load an empty one
+        fpc_load_empty_db(sdev->fpc);
+        int length  = fpc_get_user_db_length(sdev->fpc);
+        fpc_store_user_db(sdev->fpc, length, sdev->db_path);
+
+        return 0;
+    } else {
+        if ((result = fpc_load_user_db(sdev->fpc, sdev->db_path)) != 0) {
+            ALOGE("Error loading user database: %d\n", result);
+            return result;
+        }
     }
+
     if((result = fpc_set_gid(sdev->fpc, gid)) != 0)
     {
         ALOGE("Error setting current gid: %d\n", result);

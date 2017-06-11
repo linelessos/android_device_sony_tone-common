@@ -58,6 +58,7 @@ err_t fpc_auth_end(fpc_imp_data_t *data); //end auth
 err_t fpc_get_user_db_length(fpc_imp_data_t *data); //get size of working db
 err_t fpc_set_gid(fpc_imp_data_t *data, uint32_t gid);
 err_t fpc_load_user_db(fpc_imp_data_t *data, char* path); //load user DB into TZ app from storage
+err_t fpc_load_empty_db(fpc_imp_data_t *data);
 // FIXME: length should be fetched internally in kitakami implementation
 err_t fpc_store_user_db(fpc_imp_data_t *data, uint32_t length, char* path); //store running TZ db
 err_t fpc_close(fpc_imp_data_t **data); //close this implementation
