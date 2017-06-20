@@ -31,7 +31,11 @@ LOCAL_CFLAGS += -DFPC_DB_PER_GID
 endif
 
 ifeq ($(filter-out kugo suzu dora kagura keyaki,$(TARGET_DEVICE)),)
-LOCAL_SRC_FILES += fpc_imp_loire.c
+LOCAL_SRC_FILES += fpc_imp_loire_tone.c
+endif
+
+ifeq ($(TARGET_FPC_VERSION),N)
+LOCAL_CFLAGS += -DUSE_FPC_N
 endif
 
 LOCAL_CFLAGS += -std=c99
