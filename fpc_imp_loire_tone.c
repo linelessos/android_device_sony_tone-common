@@ -17,7 +17,14 @@
 #include "QSEEComAPI.h"
 #include "QSEEComFunc.h"
 #include "fpc_imp.h"
+
+#ifdef USE_FPC_N
+#include "tz_api_tone.h"
+#else
 #include "tz_api_loire.h"
+#endif
+#include "tz_api_loire_tone.h"
+
 #include "common.h"
 
 #include <string.h>
@@ -117,7 +124,7 @@ err_t send_modified_command_to_tz(fpc_data_t *ldata, struct qcom_km_ion_info_t i
     struct QSEECom_handle *handle = ldata->fpc_handle;
 
     fpc_send_mod_cmd_t* send_cmd = (fpc_send_mod_cmd_t*) handle->ion_sbuffer;
-    void *rec_cmd = handle->ion_sbuffer + 64;
+    void *rec_cmd = handle->ion_sbuffer + TZ_RESPONSE_OFFSET;
     struct QSEECom_ion_fd_info  ion_fd_info;
 
     memset(&ion_fd_info, 0, sizeof(struct QSEECom_ion_fd_info));
