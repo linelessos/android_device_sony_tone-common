@@ -34,6 +34,10 @@ ifeq ($(filter-out kugo suzu dora kagura keyaki,$(TARGET_DEVICE)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
 
+ifeq ($(filter-out maple,$(TARGET_DEVICE)),)
+LOCAL_SRC_FILES += fpc_imp_yoshino.c
+endif
+
 ifeq ($(TARGET_FPC_VERSION),N)
 LOCAL_CFLAGS += -DUSE_FPC_N
 endif
