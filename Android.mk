@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-ifeq ($(filter-out satsuki sumire suzuran suzu kugo dora kagura keyaki maple,$(TARGET_DEVICE)),)
+ifneq ($(filter kitakami loire tone yoshino,$(PRODUCT_PLATFORM)),)
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -25,16 +25,16 @@ LOCAL_SRC_FILES := fingerprint.c \
 		   QSEEComFunc.c \
 		   common.c
 
-ifeq ($(filter-out satsuki sumire suzuran,$(TARGET_DEVICE)),)
+ifeq ($(filter-out kitakami,$(PRODUCT_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_kitakami.c
 LOCAL_CFLAGS += -DFPC_DB_PER_GID
 endif
 
-ifeq ($(filter-out kugo suzu dora kagura keyaki,$(TARGET_DEVICE)),)
+ifeq ($(filter-out loire tone,$(PRODUCT_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
 
-ifeq ($(filter-out maple,$(TARGET_DEVICE)),)
+ifeq ($(filter-out yoshino,$(PRODUCT_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino.c
 endif
 
