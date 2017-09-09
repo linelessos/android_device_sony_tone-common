@@ -1,6 +1,6 @@
-# Sony Kitakami Fingerprint HAL #
+# Sony Fingerprint HAL #
 
-This is an open android HAL to enable the use for the fingerprint authentication sensor on the sony Kitakami platform.
+This is an open android HAL to enable the use for the fingerprint authentication sensor on the sony platforms.
 It makes use of the TrustZone (TZ) fingerprint application via the QSEECOM API (documented here https://android.googlesource.com/platform/hardware/qcom/keymaster/+/android-6.0.1_r26/QSEEComAPI.h)
 
 ## Overview ##
@@ -25,5 +25,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
- 
