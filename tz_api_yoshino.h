@@ -27,6 +27,7 @@ extern "C" {
 #define FP_TZAPP_NAME "tzfingerprint"
 
 #define KM_TZAPP_PATH "/firmware/image/"
+#define KM_TZAPP_ALT_PATH "/odm/firmware/"
 #define KM_TZAPP_NAME "keymaste"
 #define KM_TZAPP_ALT_NAME "keymaster"
 
