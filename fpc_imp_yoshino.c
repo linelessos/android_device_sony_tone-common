@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #define LOG_TAG "FPC IMP"
 #define LOG_NDEBUG 0
@@ -34,7 +35,6 @@
 #include <limits.h>
 
 #define SPI_CLK_FILE  "/sys/bus/spi/devices/spi0.1/clk_enable"
-#define SPI_PREP_FILE SYSFS_PREFIX "/spi_prepare"
 #define SPI_WAKE_FILE SYSFS_PREFIX "/wakeup_enable"
 #define SPI_IRQ_FILE  SYSFS_PREFIX "/irq"
 
@@ -55,31 +55,6 @@ static err_t poll_irq(char *path)
 
     sysfs_write(SPI_WAKE_FILE, "disable");
     return ret;
-}
-
-
-err_t device_enable()
-{
-    if (sysfs_write(SPI_PREP_FILE,"enable")< 0) {
-        return -1;
-    }
-
-/*    if (sysfs_write(SPI_CLK_FILE,"1")< 0) {
-        return -1;
-    }*/
-    return 1;
-}
-
-err_t device_disable()
-{
-/*    if (sysfs_write(SPI_CLK_FILE,"0")< 0) {
-        return -1;
-    }*/
-
-    if (sysfs_write(SPI_PREP_FILE,"disable")< 0) {
-        return -1;
-    }
-    return 1;
 }
 
 static const char *fpc_error_str(int err)
@@ -422,7 +397,7 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    if (device_enable() < 0) {
+    if (fpc_set_power(FPC_PWRON) < 0) {
         ALOGE("Error starting device\n");
         return -1;
     }
@@ -443,7 +418,7 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         ret = 1000;
     }
 
-    if (device_disable() < 0) {
+    if (fpc_set_power(FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         return -1;
     }
@@ -688,7 +663,7 @@ err_t fpc_close(fpc_imp_data_t **data)
     fpc_deep_sleep(ldata);
 
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
-    if (device_disable() < 0) {
+    if (fpc_set_power(FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         return -1;
     }
@@ -712,7 +687,7 @@ err_t fpc_init(fpc_imp_data_t **data)
         goto err;
     }
 
-    if (device_enable() < 0) {
+    if (fpc_set_power(FPC_PWRON) < 0) {
         ALOGE("Error starting device\n");
         goto err_qsee;
     }
@@ -781,7 +756,7 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     fpc_deep_sleep(fpc_data);
 
-    if (device_disable() < 0) {
+    if (fpc_set_power(FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         goto err_alloc;
     }
