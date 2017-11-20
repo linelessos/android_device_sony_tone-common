@@ -34,10 +34,6 @@
 #include <cutils/log.h>
 #include <limits.h>
 
-#define SPI_CLK_FILE  "/sys/bus/spi/devices/spi0.1/clk_enable"
-#define SPI_WAKE_FILE SYSFS_PREFIX "/wakeup_enable"
-#define SPI_IRQ_FILE  SYSFS_PREFIX "/irq"
-
 typedef struct {
     struct fpc_imp_data_t data;
     struct QSEECom_handle *fpc_handle;
@@ -45,18 +41,6 @@ typedef struct {
     struct qcom_km_ion_info_t ihandle;
     uint32_t auth_id;
 } fpc_data_t;
-
-static err_t poll_irq(char *path)
-{
-    err_t ret = 0;
-    sysfs_write(SPI_WAKE_FILE, "disable");
-    sysfs_write(SPI_WAKE_FILE, "enable");
-
-    ret = sys_fs_irq_poll(path);
-
-    sysfs_write(SPI_WAKE_FILE, "disable");
-    return ret;
-}
 
 static const char *fpc_error_str(int err)
 {
@@ -362,7 +346,7 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
         if(result)
             return result;
 
-        if((result = poll_irq(SPI_IRQ_FILE)) == -1) {
+        if((result = fpc_poll_irq()) == -1) {
                 ALOGE("Error waiting for irq: %d\n", result);
                 return -1;
         }
