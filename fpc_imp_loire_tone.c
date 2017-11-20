@@ -46,6 +46,7 @@ typedef struct {
     struct fpc_imp_data_t data;
     struct QSEECom_handle *fpc_handle;
     struct qsee_handle_t* qsee_handle;
+    struct qcom_km_ion_info_t ihandle;
     uint32_t auth_id;
 } fpc_data_t;
 
@@ -128,30 +129,19 @@ err_t send_modified_command_to_tz(fpc_data_t *ldata, struct qcom_km_ion_info_t i
 
 err_t send_normal_command(fpc_data_t *ldata, int command)
 {
-    struct qcom_km_ion_info_t ihandle;
-
-
-    ihandle.ion_fd = 0;
-
-    if (ldata->qsee_handle->ion_alloc(&ihandle, 0x40) <0) {
-        ALOGE("ION allocation  failed");
-        return -1;
-    }
-
-    // TODO: use single shared buffer instead of allocating/free'ing again and again
-    fpc_send_std_cmd_t* send_cmd = (fpc_send_std_cmd_t*) ihandle.ion_sbuffer;
+    fpc_send_std_cmd_t* send_cmd =
+        (fpc_send_std_cmd_t*) ldata->ihandle.ion_sbuffer;
 
     send_cmd->group_id = 0x1;
     send_cmd->cmd_id = command;
     send_cmd->ret_val = 0x0;
 
-    int ret = send_modified_command_to_tz(ldata, ihandle);
+    int ret = send_modified_command_to_tz(ldata, ldata->ihandle);
 
     if(!ret) {
         ret = send_cmd->ret_val;
     }
 
-    ldata->qsee_handle->ion_free(&ihandle);
     return ret;
 }
 
@@ -680,6 +670,12 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     fpc_data->fpc_handle = mFPC_handle;
 
+    fpc_data->ihandle.ion_fd = 0;
+    if (fpc_data->qsee_handle->ion_alloc(&fpc_data->ihandle, 0x40) < 0) {
+        ALOGE("ION allocation failed");
+        goto err_keymaster;
+    }
+
     if ((ret = send_normal_command(fpc_data, FPC_INIT)) != 0) {
         ALOGE("Error sending FPC_INIT to tz: %d\n", ret);
         return -1;
@@ -732,8 +728,10 @@ err_keymaster:
     if(mKeymasterHandle != NULL)
         qsee_handle->shutdown_app(&mKeymasterHandle);
 err_alloc:
-    if(fpc_data != NULL)
+    if(fpc_data != NULL) {
+        fpc_data->qsee_handle->ion_free(&fpc_data->ihandle);
         free(fpc_data);
+    }
 err_qsee:
     qsee_free_handle(&qsee_handle);
 err:
