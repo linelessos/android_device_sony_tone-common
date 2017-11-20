@@ -10,6 +10,7 @@
 #define FPC_IOCRPREPARE _IOR(FPC_IOC_MAGIC, 0x81, int)
 #define FPC_IOCRDEVWAKE _IOR(FPC_IOC_MAGIC, 0x82, int)
 #define FPC_IOCRIRQ	_IOR(FPC_IOC_MAGIC, 0x83, int)
+#define FPC_IOCRIRQPOLL	_IOR(FPC_IOC_MAGIC, 0x84, int)
 
 enum {
     FPC_PWROFF = 0,
@@ -19,6 +20,7 @@ enum {
 typedef int32_t err_t;
 err_t fpc_set_power(int poweron);
 err_t fpc_get_power(void);
+err_t fpc_poll_irq(void);
 err_t sysfs_write(char *path, char *s);
 err_t sys_fs_irq_poll(char *path);
 
