@@ -295,6 +295,7 @@ static int fingerprint_cancel(struct fingerprint_device *dev)
 {
     ALOGI("%s : +",__func__);
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
+    fingerprint_notify_t callback = sdev->device.notify;
 
     pthread_mutex_lock(&sdev->lock);
     bool thread_running = sdev->worker.thread_running ;
@@ -315,10 +316,10 @@ static int fingerprint_cancel(struct fingerprint_device *dev)
 
     ALOGI("%s : -",__func__);
 
-    /*fingerprint_msg_t msg;
+    fingerprint_msg_t msg;
     msg.type = FINGERPRINT_ERROR;
     msg.data.error = FINGERPRINT_ERROR_CANCELED;
-    callback(&msg);*/
+    callback(&msg);
 
     return 0;
 }
