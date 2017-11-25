@@ -159,7 +159,7 @@ void *auth_thread_loop(void *arg)
     int status = 1;
 
     while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
-        ALOGD("%s : Got Input with status %d", __func__, status);
+        ALOGV("%s : Got Input with status %d", __func__, status);
 
         pthread_mutex_lock(&sdev->lock);
         if (!sdev->worker.thread_running ) {
@@ -391,7 +391,7 @@ static int fingerprint_set_active_group(struct fingerprint_device *dev,
 #if PLATFORM_SDK_VERSION >= 24
 static int fingerprint_enumerate(struct fingerprint_device *dev)
 {
-    ALOGE(__func__);
+    ALOGV(__func__);
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
     fingerprint_notify_t callback = sdev->device.notify;
 

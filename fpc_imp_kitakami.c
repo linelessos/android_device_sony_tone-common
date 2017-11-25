@@ -22,7 +22,7 @@
 #include "common.h"
 
 #define LOG_TAG "FPC IMP"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
 #include <stdlib.h>
@@ -157,7 +157,7 @@ int64_t get_int64_command(fpc_data_t *ldata, uint32_t cmd, uint32_t param)
 
 err_t fpc_set_auth_challenge(fpc_imp_data_t *data, int64_t challenge)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     return send_normal_command(ldata, FPC_SET_AUTH_CHALLENGE,0);
@@ -602,7 +602,7 @@ err_t fpc_load_user_db(fpc_imp_data_t *data, char* path)
     struct qsee_handle_t *qsee_handle = ldata->qsee_handle;
     struct stat sb;
 
-    ALOGD(__func__);
+    ALOGV(__func__);
 
     if(stat(path, &sb) == -1) {
         // TODO: Should we load a new DB and store it here?
@@ -731,7 +731,7 @@ err_t fpc_set_gid(fpc_imp_data_t __unused *data, uint32_t __unused gid)
 
 err_t fpc_close(fpc_imp_data_t **pData)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)*pData;
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
     if (device_disable() < 0) {
