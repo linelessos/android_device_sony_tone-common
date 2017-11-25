@@ -74,7 +74,7 @@ err_t fpc_poll_irq(void)
     }
     close(fd);
 
-    ALOGD("Interrupt status: %d\n", arg);
+    ALOGV("Interrupt status: %d\n", arg);
 
     /* 0 means that the interrupt didn't fire */
     if (arg == 0)

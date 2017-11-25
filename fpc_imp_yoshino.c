@@ -29,7 +29,7 @@
 #include <sys/ioctl.h>
 
 #define LOG_TAG "FPC IMP"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #include <cutils/log.h>
 #include <limits.h>
@@ -176,7 +176,7 @@ err_t send_command_result_buffer(fpc_data_t *ldata, uint32_t group_id, uint32_t 
 
 err_t send_custom_cmd(fpc_data_t *ldata, void *buffer, uint32_t len)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     struct qcom_km_ion_info_t ihandle;
 
     if (ldata->qsee_handle->ion_alloc(&ihandle, len) <0) {
@@ -201,7 +201,7 @@ err_t send_custom_cmd(fpc_data_t *ldata, void *buffer, uint32_t len)
 
 err_t fpc_set_auth_challenge(fpc_imp_data_t *data, int64_t challenge)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     fpc_send_auth_cmd_t auth_cmd = {0};
@@ -220,7 +220,7 @@ err_t fpc_set_auth_challenge(fpc_imp_data_t *data, int64_t challenge)
 
 int64_t fpc_load_auth_challenge(fpc_imp_data_t *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_load_auth_challenge_t cmd = {0};
     cmd.group_id = FPC_GROUP_FPCDATA;
@@ -240,7 +240,7 @@ int64_t fpc_load_auth_challenge(fpc_imp_data_t *data)
 
 int64_t fpc_load_db_id(fpc_imp_data_t *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     // return cached auth_id value if available
@@ -262,7 +262,7 @@ int64_t fpc_load_db_id(fpc_imp_data_t *data)
 
 err_t fpc_get_hw_auth_obj(fpc_imp_data_t *data, void * buffer, uint32_t length)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_get_auth_result_t cmd = {0};
     fpc_data_t *ldata = (fpc_data_t*)data;
 
@@ -290,7 +290,7 @@ err_t fpc_get_hw_auth_obj(fpc_imp_data_t *data, void * buffer, uint32_t length)
 
 err_t fpc_verify_auth_challenge(fpc_imp_data_t *data, void* hat, uint32_t size)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int ret = send_buffer_command(ldata, FPC_GROUP_FPCDATA, FPC_AUTHORIZE_ENROL, hat, size);
     ALOGE("verify auth challenge: %d\n", ret);
@@ -300,7 +300,7 @@ err_t fpc_verify_auth_challenge(fpc_imp_data_t *data, void* hat, uint32_t size)
 
 err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     fpc_fingerprint_delete_t cmd = {0};
@@ -321,7 +321,7 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
 
 err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int result;
 
@@ -334,7 +334,7 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     int result=-1;
     int i;
     fpc_data_t *ldata = (fpc_data_t*)data;
@@ -342,12 +342,12 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 //    while(1)
     {
         result = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_WAIT_FINGER_DOWN);
-        ALOGE("Wait finger down result: %d\n", result);
+        ALOGE_IF(result, "Wait finger down result: %d\n", result);
         if(result)
             return result;
 
         if((result = fpc_poll_irq()) == -1) {
-                ALOGE("Error waiting for irq: %d\n", result);
+                ALOGV("Error waiting for irq: %d\n", result);
                 return -1;
         }
 
@@ -367,7 +367,7 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 // Attempt to capture image
 err_t fpc_capture_image(fpc_imp_data_t *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
 
     fpc_data_t *ldata = (fpc_data_t*)data;
 
@@ -379,7 +379,7 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
     int ret = fpc_wait_finger_lost(data);
     if(!ret)
     {
-        ALOGE("Finger lost as expected\n");
+        ALOGV("Finger lost as expected\n");
         ret = fpc_wait_finger_down(data);
         if(!ret)
         {
@@ -403,7 +403,7 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
 err_t fpc_enroll_step(fpc_imp_data_t *data, uint32_t *remaining_touches)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_enrol_step_t cmd = {0};
     cmd.group_id = FPC_GROUP_TEMPLATE;
@@ -426,7 +426,7 @@ err_t fpc_enroll_step(fpc_imp_data_t *data, uint32_t *remaining_touches)
 
 err_t fpc_enroll_start(fpc_imp_data_t * data, int __unused print_index)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int ret = send_normal_command(ldata, FPC_GROUP_TEMPLATE, FPC_BEGIN_ENROL);
     if(ret < 0) {
@@ -438,7 +438,7 @@ err_t fpc_enroll_start(fpc_imp_data_t * data, int __unused print_index)
 
 err_t fpc_enroll_end(fpc_imp_data_t *data, uint32_t *print_id)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_end_enrol_t cmd = {0};
     cmd.group_id = FPC_GROUP_TEMPLATE;
@@ -461,13 +461,13 @@ err_t fpc_enroll_end(fpc_imp_data_t *data, uint32_t *print_id)
 
 err_t fpc_auth_start(fpc_imp_data_t __unused  *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     return 0;
 }
 
 err_t fpc_qualify_image(fpc_imp_data_t * data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int ret = send_normal_command(ldata, FPC_GROUP_TEMPLATE, FPC_QUALIFY_IMAGE);
     if(ret < 0) {
@@ -511,21 +511,21 @@ err_t fpc_auth_step(fpc_imp_data_t *data, uint32_t *print_id)
 
 err_t fpc_auth_end(fpc_imp_data_t __unused *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     return 0;
 }
 
 
 err_t fpc_get_print_count(fpc_imp_data_t __unused *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     return 0;
 }
 
 
 fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t __unused count)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_fingerprint_index_t idx_data = {0};
     fpc_fingerprint_list_t cmd = {0};
@@ -552,7 +552,7 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t __unu
 
 err_t fpc_get_user_db_length(fpc_imp_data_t __unused *data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     return 0;
 }
 
@@ -600,7 +600,7 @@ err_t fpc_set_gid(fpc_imp_data_t *data, uint32_t gid)
 
 err_t fpc_store_user_db(fpc_imp_data_t *data, uint32_t __unused length, char* path)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     char temp_path[PATH_MAX];
     snprintf(temp_path, PATH_MAX - 1, "%s.tmp", path);
@@ -631,7 +631,7 @@ err_t fpc_deep_sleep(fpc_imp_data_t *data) {
 
 err_t fpc_close(fpc_imp_data_t **data)
 {
-    ALOGD(__func__);
+    ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     fpc_deep_sleep(ldata);
