@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-ifneq ($(filter kitakami loire tone yoshino,$(PRODUCT_PLATFORM)),)
+ifeq ($(PRODUCT_PLATFORM_SOD),true)
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
