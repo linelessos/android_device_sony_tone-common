@@ -355,6 +355,7 @@ static int fingerprint_set_active_group(struct fingerprint_device *dev,
                                         uint32_t gid, const char *store_path)
 {
     int result;
+    bool created_empty_db = false;
     struct stat sb;
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
 
@@ -368,14 +369,14 @@ static int fingerprint_set_active_group(struct fingerprint_device *dev,
     ALOGI("%s : storage path set to : %s",__func__, sdev->db_path);
     if(stat(sdev->db_path, &sb) == -1) {
         // No existing database, load an empty one
-        fpc_load_empty_db(sdev->fpc);
-        int length  = fpc_get_user_db_length(sdev->fpc);
-        fpc_store_user_db(sdev->fpc, length, sdev->db_path);
-
-        return 0;
+        if ((result = fpc_load_empty_db(sdev->fpc)) != 0) {
+            ALOGE("Error creating empty user database: %d\n", result);
+            return result;
+        }
+        created_empty_db = true;
     } else {
         if ((result = fpc_load_user_db(sdev->fpc, sdev->db_path)) != 0) {
-            ALOGE("Error loading user database: %d\n", result);
+            ALOGE("Error loading existing user database: %d\n", result);
             return result;
         }
     }
@@ -383,6 +384,17 @@ static int fingerprint_set_active_group(struct fingerprint_device *dev,
     if((result = fpc_set_gid(sdev->fpc, gid)) != 0)
     {
         ALOGE("Error setting current gid: %d\n", result);
+    }
+
+    // if user database was created in this instance, store it directly
+    if(created_empty_db)
+    {
+        int length  = fpc_get_user_db_length(sdev->fpc);
+        fpc_store_user_db(sdev->fpc, length, sdev->db_path);
+        if ((result = fpc_load_user_db(sdev->fpc, sdev->db_path)) != 0) {
+            ALOGE("Error loading empty user database: %d\n", result);
+            return result;
+        }
     }
     return result;
 
