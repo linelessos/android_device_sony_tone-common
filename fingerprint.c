@@ -453,10 +453,10 @@ static int fingerprint_enumerate(struct fingerprint_device *dev,
 }
 #endif
 
-static int fingerprint_authenticate(struct fingerprint_device __attribute__((unused)) *dev,
-                                    uint64_t __attribute__((unused)) operation_id, __attribute__((unused)) uint32_t gid)
+static int fingerprint_authenticate(struct fingerprint_device *dev,
+                                    uint64_t operation_id, __attribute__((unused)) uint32_t gid)
 {
-
+    err_t r;
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
 
     pthread_mutex_lock(&sdev->lock);
@@ -469,9 +469,12 @@ static int fingerprint_authenticate(struct fingerprint_device __attribute__((unu
 
     sdev->worker.thread_running = true;
     pthread_mutex_unlock(&sdev->lock);
-
-    // FIXME: Verify whether this needs to run on each
-    fpc_set_auth_challenge(sdev->fpc, 0);
+    ALOGI("%s: operation_id=%ju", __func__, operation_id);
+    r = fpc_set_auth_challenge(sdev->fpc, operation_id);
+    if (r < 0) {
+        ALOGE("%s: Error setting auth challenge to %ju. r=0x%08X",__func__, operation_id, r);
+        return FINGERPRINT_ERROR;
+    }
 
     if(pthread_create(&sdev->worker.thread, NULL, auth_thread_loop, (void*)sdev)) {
         ALOGE("%s : Error creating thread\n", __func__);
