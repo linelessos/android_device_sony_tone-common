@@ -192,11 +192,11 @@ void *auth_thread_loop(void *arg)
                     hw_auth_token_t hat;
                     fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
 
-                    ALOGI("%s : hat->challenge %" PRIu64, __func__, hat.challenge);
-                    ALOGI("%s : hat->user_id %" PRIu64, __func__, hat.user_id);
-                    ALOGI("%s : hat->authenticator_id %" PRIu64, __func__, hat.authenticator_id);
+                    ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
+                    ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
+                    ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
                     ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
-                    ALOGI("%s : hat->timestamp %" PRIu64, __func__, bswap_64(hat.timestamp));
+                    ALOGI("%s : hat->timestamp %ju", __func__, bswap_64(hat.timestamp));
                     ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
 
                     fingerprint_msg_t msg;
@@ -238,7 +238,7 @@ static uint64_t fingerprint_pre_enroll(struct fingerprint_device *dev)
 {
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
     sdev->challenge = fpc_load_auth_challenge(sdev->fpc);
-    ALOGI("%s : Challenge is : %jd",__func__, sdev->challenge);
+    ALOGI("%s : Challenge is : %ju",__func__, sdev->challenge);
     return sdev->challenge;
 }
 
@@ -279,14 +279,21 @@ static int fingerprint_enroll(struct fingerprint_device *dev,
     }
 
     return 0;
+}
 
+static int fingerprint_post_enroll(struct fingerprint_device *dev)
+{
+    sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
+    ALOGI("%s: Resetting challenge", __func__);
+    sdev->challenge = 0;
+    return 0;
 }
 
 static uint64_t fingerprint_get_auth_id(struct fingerprint_device *dev)
 {
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
     uint64_t id = fpc_load_db_id(sdev->fpc);
-    ALOGI("%s : ID : %jd",__func__,id );
+    ALOGI("%s : ID : %ju",__func__,id );
     return id;
 
 }
@@ -313,6 +320,7 @@ static int fingerprint_cancel(struct fingerprint_device *dev)
 
     ALOGI("%s : join running thread",__func__);
     pthread_join(sdev->worker.thread, NULL);
+    sdev->worker.thread = 0;
 
     ALOGI("%s : -",__func__);
 
@@ -453,10 +461,10 @@ static int fingerprint_enumerate(struct fingerprint_device *dev,
 }
 #endif
 
-static int fingerprint_authenticate(struct fingerprint_device __attribute__((unused)) *dev,
-                                    uint64_t __attribute__((unused)) operation_id, __attribute__((unused)) uint32_t gid)
+static int fingerprint_authenticate(struct fingerprint_device *dev,
+                                    uint64_t operation_id, __attribute__((unused)) uint32_t gid)
 {
-
+    err_t r;
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
 
     pthread_mutex_lock(&sdev->lock);
@@ -469,9 +477,12 @@ static int fingerprint_authenticate(struct fingerprint_device __attribute__((unu
 
     sdev->worker.thread_running = true;
     pthread_mutex_unlock(&sdev->lock);
-
-    // FIXME: Verify whether this needs to run on each
-    fpc_set_auth_challenge(sdev->fpc, 0);
+    ALOGI("%s: operation_id=%ju", __func__, operation_id);
+    r = fpc_set_auth_challenge(sdev->fpc, operation_id);
+    if (r < 0) {
+        ALOGE("%s: Error setting auth challenge to %ju. r=0x%08X",__func__, operation_id, r);
+        return FINGERPRINT_ERROR;
+    }
 
     if(pthread_create(&sdev->worker.thread, NULL, auth_thread_loop, (void*)sdev)) {
         ALOGE("%s : Error creating thread\n", __func__);
@@ -526,6 +537,7 @@ static int fingerprint_open(const hw_module_t* module, const char __attribute__(
 
     dev->pre_enroll = fingerprint_pre_enroll;
     dev->enroll = fingerprint_enroll;
+    dev->post_enroll = fingerprint_post_enroll;
     dev->get_authenticator_id = fingerprint_get_auth_id;
     dev->cancel = fingerprint_cancel;
     dev->remove = fingerprint_remove;
@@ -553,7 +565,7 @@ fingerprint_module_t HAL_MODULE_INFO_SYM = {
 #endif
         .hal_api_version    = HARDWARE_HAL_API_VERSION,
         .id                 = FINGERPRINT_HARDWARE_MODULE_ID,
-        .name               = "Kitakami Fingerprint HAL",
+        .name               = "Sony OSS Fingerprint HAL",
         .author             = "Shane Francis / Jens Andersen",
         .methods            = &fingerprint_module_methods,
     },
