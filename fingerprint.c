@@ -489,6 +489,7 @@ static int fingerprint_authenticate(struct fingerprint_device *dev,
     r = fpc_set_auth_challenge(sdev->fpc, operation_id);
     if (r < 0) {
         ALOGE("%s: Error setting auth challenge to %ju. r=0x%08X",__func__, operation_id, r);
+        sdev->worker.thread_running = false;
         return FINGERPRINT_ERROR;
     }
 
