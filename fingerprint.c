@@ -184,6 +184,16 @@ void *auth_thread_loop(void *arg)
             int verify_state = fpc_auth_step(sdev->fpc, &print_id);
             ALOGI("%s : Auth step = %d", __func__, verify_state);
 
+            /* After getting something that ought to have been
+             * recognizable: Either send proper notification, or
+             * dummy one where fid=zero stands for unrecognized.
+             */
+            fingerprint_msg_t msg;
+            memset(&msg, 0, sizeof msg);
+            msg.type = FINGERPRINT_AUTHENTICATED;
+            msg.data.authenticated.finger.gid = sdev->gid;
+            msg.data.authenticated.finger.fid = 0;
+
             if (verify_state >= 0) {
                 if(print_id > 0)
                 {
@@ -199,9 +209,6 @@ void *auth_thread_loop(void *arg)
                     ALOGI("%s : hat->timestamp %ju", __func__, bswap_64(hat.timestamp));
                     ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
 
-                    fingerprint_msg_t msg;
-                    msg.type = FINGERPRINT_AUTHENTICATED;
-                    msg.data.authenticated.finger.gid = sdev->gid;
                     msg.data.authenticated.finger.fid = print_id;
 
                     msg.data.authenticated.hat = hat;
@@ -210,6 +217,7 @@ void *auth_thread_loop(void *arg)
                     break;
                 }
             }
+            callback(&msg);
         }
     }
 
@@ -481,6 +489,7 @@ static int fingerprint_authenticate(struct fingerprint_device *dev,
     r = fpc_set_auth_challenge(sdev->fpc, operation_id);
     if (r < 0) {
         ALOGE("%s: Error setting auth challenge to %ju. r=0x%08X",__func__, operation_id, r);
+        sdev->worker.thread_running = false;
         return FINGERPRINT_ERROR;
     }
 
