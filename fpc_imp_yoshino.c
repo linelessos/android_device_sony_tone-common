@@ -42,6 +42,8 @@ typedef struct {
     uint32_t auth_id;
 } fpc_data_t;
 
+err_t fpc_deep_sleep(fpc_imp_data_t *data);
+
 static const char *fpc_error_str(int err)
 {
     int realerror = err + 10;
@@ -244,7 +246,7 @@ int64_t fpc_load_db_id(fpc_imp_data_t *data)
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     // return cached auth_id value if available
-    if(ldata->auth_id) {
+    if(ldata->auth_id > 0) {
         return ldata->auth_id;
     }
     fpc_get_db_id_cmd_t cmd = {0};
@@ -325,7 +327,7 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
     fpc_data_t *ldata = (fpc_data_t*)data;
     int result;
 
-    result = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_WAIT_FINGER_LOST);
+    result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_LOST);
     if(result > 0)
         return 0;
 
@@ -341,7 +343,7 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 
 //    while(1)
     {
-        result = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_WAIT_FINGER_DOWN);
+        result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_DOWN);
         ALOGE_IF(result, "Wait finger down result: %d\n", result);
         if(result)
             return result;
@@ -350,16 +352,7 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
                 ALOGV("Error waiting for irq: %d\n", result);
                 return -1;
         }
-
-        result = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_GET_FINGER_STATUS);
-        if(result < 0)
-        {
-            ALOGE("Get finger status failed: %d\n", result);
-            return result;
-        }
-        ALOGD("Finger status: %d\n", result);
-        if(result)
-            return 0;
+        return result;
     }
     return -1;
 }
@@ -375,21 +368,27 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         ALOGE("Error starting device\n");
         return -1;
     }
+    //fpc_deep_sleep(data);
 
     int ret = fpc_wait_finger_lost(data);
+    ALOGD("fpc_wait_finger_lost = 0x%08X", ret);
     if(!ret)
     {
-        ALOGV("Finger lost as expected\n");
-        ret = fpc_wait_finger_down(data);
-        if(!ret)
+//        while(1)
         {
-            ALOGE("Finger down, capturing image\n");
-            ret = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_CAPTURE_IMAGE);
-            ALOGE("Image capture result :%d\n", ret);
-        } else
-            ret = 1001;
-    } else {
-        ret = 1000;
+            ALOGD("Finger lost as expected");
+            ret = fpc_wait_finger_down(data);
+            ALOGD("fpc_wait_finger_down = 0x%08X", ret);
+            if(ret == 1)
+            {
+                ALOGE("Finger down, capturing image");
+                ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
+                ALOGE("Image capture result :%d", ret);
+            } else
+                ret = 1001;
+            }
+        } else {
+            ret = 1000;
     }
 
     if (fpc_set_power(FPC_PWROFF) < 0) {
@@ -465,33 +464,10 @@ err_t fpc_auth_start(fpc_imp_data_t __unused  *data)
     return 0;
 }
 
-err_t fpc_qualify_image(fpc_imp_data_t * data)
-{
-    ALOGV(__func__);
-    fpc_data_t *ldata = (fpc_data_t*)data;
-    int ret = send_normal_command(ldata, FPC_GROUP_TEMPLATE, FPC_QUALIFY_IMAGE);
-    if(ret < 0) {
-        ALOGE("Error qualify image: %d\n", ret);
-        return -1;
-    }
-    return ret;
-}
-
 err_t fpc_auth_step(fpc_imp_data_t *data, uint32_t *print_id)
 {
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_send_identify_t identify_cmd = {0};
-
-    int qualify = fpc_qualify_image(ldata);
-
-    ALOGI("Got image qualify : %d\n", qualify);
-
-    if (qualify < 0) {
-        ALOGE("Error qualify: %d", qualify);
-        return -1;
-    } else if (qualify == 2) {
-        ALOGE("Bad image try again: %d", qualify);
-    }
 
     identify_cmd.commandgroup = FPC_GROUP_TEMPLATE;
     identify_cmd.command = FPC_IDENTIFY;
@@ -501,7 +477,6 @@ err_t fpc_auth_step(fpc_imp_data_t *data, uint32_t *print_id)
         ALOGE("Error identifying: %d || %d\n", result, identify_cmd.status);
         return -1;
     }
-
 
     ALOGD("Print identified as %d\n", identify_cmd.id);
 
@@ -622,7 +597,7 @@ err_t fpc_deep_sleep(fpc_imp_data_t *data) {
     err_t result;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    result = send_normal_command(ldata, FPC_GROUP_SENDOR, FPC_DEEP_SLEEP);
+    result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_DEEP_SLEEP);
 
     ALOGI("Deep Sleep Result: %d\n", result);
 
@@ -632,9 +607,9 @@ err_t fpc_deep_sleep(fpc_imp_data_t *data) {
 err_t fpc_close(fpc_imp_data_t **data)
 {
     ALOGV(__func__);
-    fpc_data_t *ldata = (fpc_data_t*)data;
+    fpc_data_t *ldata = (fpc_data_t*)*data;
 
-    fpc_deep_sleep(ldata);
+    fpc_deep_sleep(*data);
 
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
     if (fpc_set_power(FPC_PWROFF) < 0) {
@@ -734,7 +709,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     if(result != 0)
         return result;
 
-    fpc_deep_sleep(fpc_data);
+    fpc_deep_sleep((fpc_imp_data_t*)fpc_data);
 
     if (fpc_set_power(FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");

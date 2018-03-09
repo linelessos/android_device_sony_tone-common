@@ -26,10 +26,10 @@ extern "C" {
 #define FP_TZAPP_PATH "/odm/firmware/"
 #define FP_TZAPP_NAME "tzfingerprint"
 
-#define KM_TZAPP_PATH "/firmware/image/"
-#define KM_TZAPP_ALT_PATH "/odm/firmware/"
-#define KM_TZAPP_NAME "keymaste"
-#define KM_TZAPP_ALT_NAME "keymaster"
+#define KM_TZAPP_PATH "/system/etc/firmware"
+#define KM_TZAPP_ALT_PATH ""
+#define KM_TZAPP_NAME "keymaster64"
+#define KM_TZAPP_ALT_NAME ""
 
 #define BUFFER_SIZE 64
 
@@ -44,32 +44,13 @@ enum fingerprint_group_t {
   FPC_GROUP_DEBUG = 0x6, // I think?
   FPC_GROUP_QC = 0x07,
   FPC_GROUP_INFO = 0x09,
-  FPC_GROUP_SENDOR = 0xA,
+  FPC_GROUP_SENSOR = 0xA,
   FPC_GROUP_TEMPLATE = 0xB,
 };
 
-//enumerate tz app command ID's
-enum fingerprint_sensor_cmd_t {
-    FPC_WAIT_FINGER_LOST = 0x00,
-    FPC_WAIT_FINGER_DOWN = 0x02,
-    FPC_GET_FINGER_STATUS =0x03,
-    FPC_CAPTURE_IMAGE = 0x4,
-    FPC_DEEP_SLEEP = 0x05,
-    FPC_GET_OTP_INFO = 0x06,
-//    FPC_INIT Is unused on Yoshino
-};
-enum fingerprint_templates_cmd_t {
-    FPC_BEGIN_ENROL = 0x00,
-    FPC_ENROL_STEP = 0x01,
-    FPC_END_ENROL = 0x02,
-    FPC_IDENTIFY = 0x03,
-    FPC_QUALIFY_IMAGE = 0x04,
-    FPC_UPDATE_TEMPLATE = 0x05,
-    FPC_LOAD_EMPTY_DB = 0x07,
-    FPC_GET_FINGERPRINTS = 0x08,
-    FPC_DELETE_FINGERPRINT = 0x09,
-    FPC_GET_TEMPLATE_ID = 0x0B,
-    FPC_SET_GID = 0x0A,
+enum fingerprint_db_cmd_t {
+    FPC_LOAD_DB = 0x0B,
+    FPC_STORE_DB = 0x0C,
 };
 
 enum fingerprint_fpcdata_cmd_t {
@@ -80,10 +61,30 @@ enum fingerprint_fpcdata_cmd_t {
     FPC_SET_KEY_DATA = 0x05,
 };
 
-enum fingerprint_db_cmd_t {
-    FPC_LOAD_DB = 0x0C,
-    FPC_STORE_DB = 0x0D,
+
+//enumerate tz app command ID's
+enum fingerprint_sensor_cmd_t {
+    FPC_WAIT_FINGER_LOST = 0x00,
+    FPC_WAIT_FINGER_DOWN = 0x02,
+    FPC_CAPTURE_IMAGE = 0x3,
+    FPC_DEEP_SLEEP = 0x04,
+    FPC_GET_OTP_INFO = 0x06,
+//    FPC_INIT Is unused on Yoshino
 };
+
+enum fingerprint_templates_cmd_t {
+    FPC_BEGIN_ENROL = 0x00,
+    FPC_ENROL_STEP = 0x01,
+    FPC_END_ENROL = 0x02,
+    FPC_IDENTIFY = 0x03,
+    FPC_UPDATE_TEMPLATE = 0x04,
+    FPC_LOAD_EMPTY_DB = 0x06,
+    FPC_GET_FINGERPRINTS = 0x07,
+    FPC_SET_GID = 0x09,
+    FPC_DELETE_FINGERPRINT = 0x08,
+    FPC_GET_TEMPLATE_ID = 0x0A,
+};
+
 
 enum fingerprint_debug_cmd_t {
     FPC_GET_SENSOR_INFO = 0x03,
@@ -175,8 +176,6 @@ typedef struct {
   uint32_t command;
   int32_t status;
   uint32_t id;
-  uint32_t dbg1;
-  uint32_t dbg2;
 } fpc_send_identify_t;
 
 typedef struct {
@@ -212,7 +211,8 @@ typedef struct {
     uint32_t group_id;
     uint32_t cmd_id;
     uint32_t result;
-    uint32_t auth_id;
+    uint32_t unk1;
+    uint64_t auth_id;
 } fpc_get_db_id_cmd_t;
 
 #ifdef __cplusplus
