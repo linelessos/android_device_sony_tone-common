@@ -496,6 +496,12 @@ err_t fpc_auth_end(fpc_imp_data_t __unused *data)
     return 0;
 }
 
+err_t fpc_update_template(fpc_imp_data_t *data)
+{
+    // TODO: Implement for loire/tone
+    return 0;
+}
+
 
 err_t fpc_get_print_count(fpc_imp_data_t __unused *data)
 {
