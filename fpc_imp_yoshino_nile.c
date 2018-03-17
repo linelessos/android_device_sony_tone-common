@@ -48,37 +48,38 @@ typedef struct {
 
 err_t fpc_deep_sleep(fpc_imp_data_t *data);
 
+static const char *error_strings[] = {
+#ifdef USE_FPC_NILE
+    "FPC_ERROR_TEMPLATE_CORRUPTED",
+    "FPC_ERROR_DB",
+    "FPC_ERROR_CRYPTO",
+    "UNKNOWN_ERROR",
+    "UNKNOWN_ERROR",
+#endif
+    "FPC_ERROR_PN",
+    "FPC_ERROR_RESET_HARDWARE",
+    "FPC_ERROR_NOT_INITIALIZED",
+    "FPC_ERROR_CONFIG",
+    "FPC_ERROR_HARDWARE",
+    "FPC_ERROR_NOENTITY",
+    "FPC_ERROR_CANCELLED",
+    "FPC_ERROR_IO",
+    "FPC_ERROR_NOSPACE",
+    "FPC_ERROR_COMM",
+    "FPC_ERROR_ALLOC"
+    "FPC_ERROR_TIMEDOUT",
+    "FPC_ERROR_INPUT",
+};
+
+static const uint32_t num_error_strings = sizeof(error_strings) / sizeof(error_strings[0]);
+
 static const char *fpc_error_str(int err)
 {
-    int realerror = err + 10;
-
-    switch(realerror)
-    {
-        case 0:
-            return "FPC_ERROR_CONFIG";
-        case 1:
-            return "FPC_ERROR_HARDWARE";
-        case 2:
-            return "FPC_ERROR_NOENTITY";
-        case 3:
-            return "FPC_ERROR_CANCELLED";
-        case 4:
-            return "FPC_ERROR_IO";
-        case 5:
-            return "FPC_ERROR_NOSPACE";
-        case 6:
-            return "FPC_ERROR_COMM";
-        case 7:
-            return "FPC_ERROR_ALLOC";
-        case 8:
-            return "FPC_ERROR_TIMEDOUT";
-        case 9:
-            return "FPC_ERROR_INPUT";
-        default:
-            return "FPC_ERROR_UNKNOWN";
-    }
+    int realerror = err + num_error_strings;
+    if (realerror < 0 || realerror >= num_error_strings)
+        return "UNKNOWN_ERROR";
+    return error_strings[realerror];
 }
-
 
 err_t send_modified_command_to_tz(fpc_data_t *ldata, struct qcom_km_ion_info_t ihandle)
 {
