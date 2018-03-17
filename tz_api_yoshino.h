@@ -97,7 +97,7 @@ enum fingerprint_qc_cmd_t {
 };
 
 enum fingerprint_info_cmd_t {
-    FPC_GET_FPC_INFO = 0x04,
+    FPC_GET_FPC_INFO = 0x02,
 };
 
 typedef struct {
@@ -176,6 +176,7 @@ typedef struct {
   uint32_t command;
   int32_t status;
   uint32_t id;
+  uint32_t unk1[2];
 } fpc_send_identify_t;
 
 typedef struct {

@@ -54,6 +54,7 @@ err_t fpc_enroll_end(fpc_imp_data_t *data, uint32_t *print_id); //end enrollment
 err_t fpc_auth_start(fpc_imp_data_t *data); //start auth
 err_t fpc_auth_step(fpc_imp_data_t *data, uint32_t *print_id); //step forward auth & process image (only available if capture image returns OK)
 err_t fpc_auth_end(fpc_imp_data_t *data); //end auth
+err_t fpc_update_template(fpc_imp_data_t *data); // Update fingerprint template
 // FIXME: This should be internal to kitakami implementation
 err_t fpc_get_user_db_length(fpc_imp_data_t *data); //get size of working db
 err_t fpc_set_gid(fpc_imp_data_t *data, uint32_t gid);

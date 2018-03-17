@@ -593,6 +593,19 @@ err_t fpc_store_user_db(fpc_imp_data_t *data, uint32_t __unused length, char* pa
     return ret;
 }
 
+err_t fpc_update_template(fpc_imp_data_t *data)
+{
+    ALOGV(__func__);
+    fpc_data_t *ldata = (fpc_data_t*)data;
+    int result;
+
+    result = send_normal_command(ldata, FPC_GROUP_TEMPLATE, FPC_UPDATE_TEMPLATE);
+    if(!result)
+        return result;
+
+    return -1;
+}
+
 err_t fpc_deep_sleep(fpc_imp_data_t *data) {
     err_t result;
     fpc_data_t *ldata = (fpc_data_t*)data;

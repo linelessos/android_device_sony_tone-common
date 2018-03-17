@@ -153,10 +153,10 @@ void *auth_thread_loop(void *arg)
 
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)arg;
     fingerprint_notify_t callback = sdev->device.notify;
+    int result;
+    int status = 1;
 
     fpc_auth_start(sdev->fpc);
-
-    int status = 1;
 
     while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
         ALOGV("%s : Got Input with status %d", __func__, status);
@@ -197,9 +197,18 @@ void *auth_thread_loop(void *arg)
             if (verify_state >= 0) {
                 if(print_id > 0)
                 {
+                    hw_auth_token_t hat;
                     ALOGI("%s : Got print id : %u", __func__, print_id);
 
-                    hw_auth_token_t hat;
+                    result = fpc_update_template(sdev->fpc);
+                    if(result)
+                    {
+                        ALOGE("Error updating template: %d", result);
+                    } else {
+                        result = fpc_store_user_db(sdev->fpc, 0, sdev->db_path);
+                        if (result) ALOGE("Error storing database: %d", result);
+                    }
+
                     fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
 
                     ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
@@ -214,6 +223,7 @@ void *auth_thread_loop(void *arg)
                     msg.data.authenticated.hat = hat;
 
                     callback(&msg);
+
                     break;
                 }
             }

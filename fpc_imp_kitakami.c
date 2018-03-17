@@ -502,6 +502,13 @@ err_t fpc_auth_end(fpc_imp_data_t *data)
     return ret;
 }
 
+err_t fpc_update_template(fpc_imp_data_t *data)
+{
+    // This doesn't exist for kitakami
+    return 0;
+}
+
+
 err_t fpc_get_print_id(fpc_imp_data_t *data, int id)
 {
     fpc_data_t *ldata = (fpc_data_t*)data;
