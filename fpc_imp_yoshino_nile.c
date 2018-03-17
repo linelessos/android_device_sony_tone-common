@@ -18,7 +18,11 @@
 #include "QSEEComFunc.h"
 #include "fpc_imp.h"
 
+#ifdef USE_FPC_NILE
+#include "tz_api_nile.h"
+#else
 #include "tz_api_yoshino.h"
+#endif
 
 #include "common.h"
 

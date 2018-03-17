@@ -35,7 +35,12 @@ LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
 
 ifeq ($(filter-out yoshino,$(PRODUCT_PLATFORM)),)
-LOCAL_SRC_FILES += fpc_imp_yoshino.c
+LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
+endif
+
+ifeq ($(filter-out nile,$(PRODUCT_PLATFORM)),)
+LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
+LOCAL_CFLAGS += -DUSE_FPC_NILE
 endif
 
 ifeq ($(TARGET_FPC_VERSION),N)
