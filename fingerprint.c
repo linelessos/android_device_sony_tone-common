@@ -293,7 +293,7 @@ static int fingerprint_close(hw_device_t *dev)
 {
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)dev;
 
-    setState(sdev,STATE_EXIT);
+    setState(sdev, STATE_EXIT);
 
     fpc_close(&sdev->fpc);
     if (dev) {
