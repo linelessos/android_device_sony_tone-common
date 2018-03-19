@@ -26,6 +26,8 @@
 #include <pthread.h>
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 #include <mutex>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
 
 extern "C" {
     #include "fpc_imp.h"
@@ -59,6 +61,8 @@ typedef struct {
     pthread_t thread;
     bool thread_running;
     worker_state running_state;
+    int epoll_fd;
+    int event_fd;
 } fpc_thread_t;
 
 typedef struct {

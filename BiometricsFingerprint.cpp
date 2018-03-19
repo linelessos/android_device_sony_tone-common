@@ -330,6 +330,15 @@ sony_fingerprint_device_t* BiometricsFingerprint::openHal() {
     memset(sdev, 0, sizeof(sony_fingerprint_device_t));
     sdev->fpc = fpc_data;
 
+    sdev->worker.epoll_fd = epoll_create1(0);
+    sdev->worker.event_fd = eventfd(0, EFD_NONBLOCK);
+
+    struct epoll_event evnt = {0};
+    evnt.data.fd = sdev->worker.event_fd;
+    evnt.events = EPOLLIN | EPOLLET;
+
+    epoll_ctl(sdev->worker.epoll_fd, EPOLL_CTL_ADD, sdev->worker.event_fd, &evnt);
+
     sdev->state = STATE_IDLE;
 
     if(pthread_create(&sdev->worker.thread, NULL, worker_thread, (void*)sdev)) {
@@ -354,6 +363,7 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
     bool ret = true;
 
     pthread_mutex_lock(&sdev->lock);
+    eventfd_write(sdev->worker.event_fd, 1);
     if (sdev->state == state) {
         ret = false;
         ALOGW("%s : Already in state =%d", __func__, state);
@@ -385,10 +395,18 @@ void * BiometricsFingerprint::worker_thread(void *args){
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)args;
 
     bool thread_running = true;
+    static const int EVENTS = 2;
+    struct epoll_event evnts[EVENTS];
+
+    ALOGI("START");
 
     while (thread_running) {
 
-        usleep(5000);
+        if (sdev->worker.running_state == getState(sdev)) {
+            ALOGI("%s : No change needed to state, wait", __func__);
+            int count = epoll_wait(sdev->worker.epoll_fd, evnts, EVENTS, -1);
+            ALOGI("Events : %d", count);
+        }
 
         switch (getState(sdev)) {
             case STATE_IDLE:
