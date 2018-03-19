@@ -146,16 +146,7 @@ Return<uint64_t> BiometricsFingerprint::getAuthenticatorId() {
 Return<RequestStatus> BiometricsFingerprint::cancel() {
 
     ALOGI("%s : +",__func__);
-    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-            BiometricsFingerprint::getInstance());
-
-    const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-    std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-    if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
-        ALOGE("Receiving callbacks before the client callback is registered.");
-        return ErrorFilter(-1);
-    }
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
     sony_fingerprint_device_t *sdev = mDevice;
 
@@ -172,6 +163,11 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 
     ALOGI("%s : -",__func__);
 
+    if (mClientCallback == nullptr) {
+        ALOGE("Client callback not set");
+        return ErrorFilter(-1);
+    }
+
     mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
 
     return ErrorFilter(0);
@@ -179,16 +175,8 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 
 Return<RequestStatus> BiometricsFingerprint::enumerate()  {
 
-    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-            BiometricsFingerprint::getInstance());
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
-    const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-    std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-    if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
-        ALOGE("Receiving callbacks before the client callback is registered.");
-        return ErrorFilter(-1);
-    }
 
     ALOGV(__func__);
     sony_fingerprint_device_t *sdev = mDevice;
@@ -207,7 +195,11 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
 
         uint32_t  remaining_templates = (uint32_t)(print_indexs.print_count - i - 1);
 
-        thisPtr->mClientCallback->onEnumerate(devId, print_indexs.prints[i], mDevice->gid, remaining_templates);
+        if (mClientCallback != nullptr) {
+            mClientCallback->onEnumerate(devId, print_indexs.prints[i], mDevice->gid, remaining_templates);
+        } else {
+            ALOGE("Client callback not set");
+        }
     }
 
     return ErrorFilter(0);
@@ -215,29 +207,25 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
 
 Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) {
 
-    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-            BiometricsFingerprint::getInstance());
-
-    const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-    std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-    if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
-        ALOGE("Receiving callbacks before the client callback is registered.");
-        return ErrorFilter(-1);
-    }
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
     sony_fingerprint_device_t *sdev = mDevice;
 
+    if (mClientCallback == nullptr) {
+        ALOGE("Client callback not set");
+        return ErrorFilter(-1);
+    }
+
     if (fpc_del_print_id(sdev->fpc, fid) == 0){
 
-        thisPtr->mClientCallback->onRemoved(devId, fid, gid,0);
+        mClientCallback->onRemoved(devId, fid, gid,0);
 
         uint32_t db_length = fpc_get_user_db_length(sdev->fpc);
         ALOGD("%s : User Database Length Is : %lu", __func__,(unsigned long) db_length);
         fpc_store_user_db(sdev->fpc, db_length, sdev->db_path);
         return ErrorFilter(0);
     } else {
-        thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_REMOVE, -1);
+        mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_REMOVE, -1);
         return ErrorFilter(-1);
     }
 }
