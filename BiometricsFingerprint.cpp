@@ -120,6 +120,11 @@ Return<RequestStatus> BiometricsFingerprint::enroll(const hidl_array<uint8_t, 69
         ALOGW("%s : Thread already in enroll state",__func__);
     }
 
+    while (isChangeWaiting(mDevice)){
+        ALOGI("%s : wait for enrol state",__func__);
+        usleep(1000);
+    }
+
     return ErrorFilter(0);
 }
 
@@ -152,15 +157,22 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
         return ErrorFilter(-1);
     }
 
-    sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)mDevice;
+    sony_fingerprint_device_t *sdev = mDevice;
 
     if (!setState(sdev, STATE_IDLE)){
         ALOGW("%s : Thread already in idle state",__func__);
+    } else {
+        ALOGI("%s : set idle state",__func__);
+    }
+
+    while (isChangeWaiting(mDevice)){
+        ALOGI("%s : wait for idle state",__func__);
+        usleep(1000);
     }
 
     ALOGI("%s : -",__func__);
 
-    thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+    mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
 
     return ErrorFilter(0);
 }
@@ -302,6 +314,11 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
         ALOGW("%s : Thread already in auth state",__func__);
     }
 
+    while (isChangeWaiting(mDevice)){
+        ALOGI("%s : wait for auth state",__func__);
+        usleep(1000);
+    }
+
     return ErrorFilter(0);
 }
 
@@ -360,6 +377,21 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
     return ret;
 }
 
+bool BiometricsFingerprint::isChangeWaiting(sony_fingerprint_device_t* sdev){
+    worker_state running = sdev->worker.running_state;
+    worker_state target = sdev->state;
+
+    ALOGI("%s : RUN STATE : %d || TARGET STATE : %d", __func__, running, target);
+
+    if (running == target){
+        ALOGI("%s : Waiting for state machine to update to target state", __func__);
+        return false;
+    } else {
+        ALOGI("%s : State machine in target state", __func__);
+        return true;
+    }
+}
+
 void * BiometricsFingerprint::worker_thread(void *args){
 
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)args;
@@ -367,21 +399,26 @@ void * BiometricsFingerprint::worker_thread(void *args){
     bool thread_running = true;
 
     while (thread_running) {
+
         usleep(5000);
 
         switch (getState(sdev)) {
             case STATE_IDLE:
+                sdev->worker.running_state = STATE_IDLE;
                 ALOGI("%s : IDLE", __func__);
                 break;
             case STATE_ENROLL:
+                sdev->worker.running_state =  STATE_ENROLL;
                 ALOGI("%s : ENROLL", __func__);
                 process_enroll(sdev);
                 break;
             case STATE_AUTH:
+                sdev->worker.running_state = STATE_AUTH;
                 ALOGI("%s : AUTH", __func__);
                 process_auth(sdev);
                 break;
             case STATE_EXIT:
+                sdev->worker.running_state = STATE_EXIT;
                 ALOGI("%s : AUTH", __func__);
                 thread_running = false;
                 break;

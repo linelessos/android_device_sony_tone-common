@@ -58,6 +58,7 @@ enum worker_state {
 typedef struct {
     pthread_t thread;
     bool thread_running;
+    worker_state running_state;
 } fpc_thread_t;
 
 typedef struct {
@@ -100,6 +101,7 @@ private:
     static void * worker_thread(void *args);
     static enum worker_state getState(sony_fingerprint_device_t* sdev);
     static bool setState(sony_fingerprint_device_t* sdev, enum worker_state state);
+    static bool isChangeWaiting(sony_fingerprint_device_t* sdev);
     static void process_enroll(sony_fingerprint_device_t *sdev);
     static void process_auth(sony_fingerprint_device_t *sdev);
 
