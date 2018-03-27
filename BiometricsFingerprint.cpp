@@ -123,6 +123,7 @@ Return<RequestStatus> BiometricsFingerprint::enroll(const hidl_array<uint8_t, 69
     while (isChangeWaiting(mDevice)){
         ALOGI("%s : wait for enrol state",__func__);
         usleep(1000);
+        setState(sdev, STATE_ENROLL); //Will only update state of we are not yet running in that state
     }
 
     return ErrorFilter(0);
@@ -159,6 +160,7 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
     while (isChangeWaiting(mDevice)){
         ALOGI("%s : wait for idle state",__func__);
         usleep(1000);
+        setState(sdev, STATE_IDLE); //Will only update state of we are not yet running in that state
     }
 
     ALOGI("%s : -",__func__);
@@ -305,6 +307,7 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
     while (isChangeWaiting(mDevice)){
         ALOGI("%s : wait for auth state",__func__);
         usleep(1000);
+        setState(sdev, STATE_AUTH); //Will only update state of we are not yet running in that state
     }
 
     return ErrorFilter(0);
@@ -363,11 +366,12 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
     bool ret = true;
 
     pthread_mutex_lock(&sdev->lock);
-    eventfd_write(sdev->worker.event_fd, 1);
-    if (sdev->state == state) {
+    if (sdev->worker.running_state == state) {
         ret = false;
-        ALOGW("%s : Already in state =%d", __func__, state);
+        ALOGW("%s : Already running in state = %d", __func__, state);
     } else {
+        ALOGD("%s : Setting state to = %d", __func__, state);
+        eventfd_write(sdev->worker.event_fd, 1);
         sdev->state = state;
     }
     pthread_mutex_unlock(&sdev->lock);
