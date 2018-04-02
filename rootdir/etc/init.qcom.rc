@@ -616,13 +616,6 @@ service vendor.mlog_qmi_service /vendor/bin/mlog_qmi_service
     user root
     group system wakelock drmrpc
 
-# TA import service
-service vendor.taimport /vendor/bin/taimport
-    class late_start
-    user root
-    group system drmrpc
-    oneshot
-
 on property:service.usb.otg.switch=check
     write /sys/module/qpnp_smbcharger/parameters/start_id_polling 1
     setprop service.usb.otg_switch check_done

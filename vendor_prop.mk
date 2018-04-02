@@ -49,7 +49,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     bluetooth.hfp.client=1 \
     persist.bluetooth.avrcpversion=avrcp16 \
     ro.bluetooth.hfp.ver=1.7 \
-    ro.bt.bdaddr_path=/data/etc/bluetooth_bdaddr \
+    ro.vendor.bt.bdaddr_path=/data/vendor/bluetooth/bluetooth_bdaddr \
     persist.vendor.bt.enable.splita2dp=false
 
 # Camera Debug
@@ -209,4 +209,5 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Wifi
 PRODUCT_PROPERTY_OVERRIDES += \
-    wifi.interface=wlan0
+    wifi.interface=wlan0 \
+    ro.vendor.wifi.addr_path=/data/vendor/wifi/wlan_mac.bin
