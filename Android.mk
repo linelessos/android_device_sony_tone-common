@@ -11,20 +11,20 @@ LOCAL_SRC_FILES := \
     QSEEComFunc.c \
     common.c
 
-ifeq ($(filter-out kitakami,$(PRODUCT_PLATFORM)),)
+ifeq ($(filter-out kitakami,$(TARGET_BOOTLOADER_BOARD_NAME)),)
 LOCAL_SRC_FILES += fpc_imp_kitakami.c
 LOCAL_CFLAGS += -DFPC_DB_PER_GID
 endif
 
-ifeq ($(filter-out loire tone,$(PRODUCT_PLATFORM)),)
+ifeq ($(filter-out loire tone,$(TARGET_BOOTLOADER_BOARD_NAME)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
 
-ifeq ($(filter-out yoshino,$(PRODUCT_PLATFORM)),)
+ifeq ($(filter-out yoshino,$(TARGET_BOOTLOADER_BOARD_NAME)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
 endif
 
-ifeq ($(filter-out nile,$(PRODUCT_PLATFORM)),)
+ifeq ($(filter-out nile,$(TARGET_BOOTLOADER_BOARD_NAME)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
 LOCAL_CFLAGS += -DUSE_FPC_NILE
 endif
