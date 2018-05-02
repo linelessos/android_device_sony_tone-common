@@ -1,3 +1,4 @@
+ifneq ($(TARGET_DEVICE_NO_FPC), true)
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -62,3 +63,4 @@ LOCAL_CFLAGS += -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) -Wno-missing-fiel
 
 
 include $(BUILD_EXECUTABLE)
+endif
