@@ -598,6 +598,11 @@ void * BiometricsFingerprint::worker_thread(void *args){
                         ALOGI("%s : Got print id : %u", __func__, print_id);
                         thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
                     }
+                } else {
+                    setState(sdev, STATE_IDLE);
+                    thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+                    raise(SIGKILL);
+                    break;
                 }
             }
         }
