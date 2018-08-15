@@ -46,7 +46,6 @@ LOCAL_SHARED_LIBRARIES := \
 
 
 LOCAL_CONLYFLAGS := -std=c99
-LOCAL_CPPFLAGS := -std=c++0x
 
 SYSFS_PREFIX := "/sys/devices/soc/fpc1145_device"
 ifeq ($(TARGET_KERNEL_VERSION),3.10)
