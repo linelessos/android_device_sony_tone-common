@@ -29,15 +29,14 @@
 #include <sys/stat.h>
 #include <byteswap.h>
 
+#include "android-base/macros.h"
+
 namespace android {
 namespace hardware {
 namespace biometrics {
 namespace fingerprint {
 namespace V2_1 {
 namespace implementation {
-
-// Supported fingerprint HAL version
-static const uint16_t kVersion = HARDWARE_MODULE_API_VERSION(2, 1);
 
 using RequestStatus =
         android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
@@ -100,7 +99,8 @@ Return<uint64_t> BiometricsFingerprint::preEnroll()  {
 }
 
 Return<RequestStatus> BiometricsFingerprint::enroll(const hidl_array<uint8_t, 69>& hat,
-        uint32_t gid, uint32_t timeoutSec) {
+        uint32_t gid ATTRIBUTE_UNUSED,
+        uint32_t timeoutSec ATTRIBUTE_UNUSED) {
     const hw_auth_token_t* authToken =
         reinterpret_cast<const hw_auth_token_t*>(hat.data());
 
@@ -288,7 +288,7 @@ Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid,
 }
 
 Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
-        uint32_t gid) {
+        uint32_t gid ATTRIBUTE_UNUSED) {
 
     err_t r;
     sony_fingerprint_device_t *sdev = mDevice;
