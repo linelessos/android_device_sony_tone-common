@@ -52,6 +52,10 @@ SYSFS_PREFIX := "/sys/devices/soc/fpc1145_device"
 ifeq ($(TARGET_KERNEL_VERSION),3.10)
 SYSFS_PREFIX := "/sys/devices/soc.0/fpc1145_device"
 endif
+ifeq ($(TARGET_KERNEL_VERSION),4.9)
+SYSFS_PREFIX := "/sys/devices/platform/soc/fpc1145_device"
+endif
+
 LOCAL_CFLAGS += -DSYSFS_PREFIX=\"$(SYSFS_PREFIX)\"
 
 ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
