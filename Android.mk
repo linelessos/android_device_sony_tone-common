@@ -49,10 +49,10 @@ LOCAL_CONLYFLAGS := -std=c99
 LOCAL_CPPFLAGS := -std=c++0x
 
 SYSFS_PREFIX := "/sys/devices/soc/fpc1145_device"
-ifeq ($(TARGET_KERNEL_VERSION),3.10)
+ifeq ($(SOMC_KERNEL_VERSION),3.10)
 SYSFS_PREFIX := "/sys/devices/soc.0/fpc1145_device"
 endif
-ifeq ($(TARGET_KERNEL_VERSION),4.9)
+ifeq ($(SOMC_KERNEL_VERSION),4.9)
 SYSFS_PREFIX := "/sys/devices/platform/soc/fpc1145_device"
 endif
 
