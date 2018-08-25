@@ -17,8 +17,13 @@ LOCAL_SRC_FILES += fpc_imp_kitakami.c
 LOCAL_CFLAGS += -DFPC_DB_PER_GID
 endif
 
-ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
+ifeq ($(filter-out loire,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
+endif
+
+ifeq ($(filter-out tone,$(SOMC_PLATFORM)),)
+LOCAL_SRC_FILES += fpc_imp_loire_tone.c
+LOCAL_CFLAGS += -DUSE_FPC_TONE
 endif
 
 ifeq ($(filter-out yoshino,$(SOMC_PLATFORM)),)
@@ -28,10 +33,6 @@ endif
 ifeq ($(filter-out nile,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
 LOCAL_CFLAGS += -DUSE_FPC_NILE
-endif
-
-ifeq ($(TARGET_FPC_VERSION),N)
-LOCAL_CFLAGS += -DUSE_FPC_N
 endif
 
 LOCAL_SHARED_LIBRARIES := \

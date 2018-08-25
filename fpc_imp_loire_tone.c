@@ -18,7 +18,7 @@
 #include "QSEEComFunc.h"
 #include "fpc_imp.h"
 
-#ifdef USE_FPC_N
+#ifdef USE_FPC_TONE
 #include "tz_api_tone.h"
 #else
 #include "tz_api_loire.h"
