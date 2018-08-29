@@ -247,11 +247,7 @@ Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid,
     struct stat sb;
     sony_fingerprint_device_t *sdev = mDevice;
 
-#ifdef FPC_DB_PER_GID
-    sprintf(sdev->db_path,"%s/data_%d.db", store_path, gid);
-#else
     sprintf(sdev->db_path,"%s/user.db", storePath.c_str());
-#endif
     sdev->gid = gid;
 
     ALOGI("%s : storage path set to : %s",__func__, sdev->db_path);

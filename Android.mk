@@ -12,11 +12,6 @@ LOCAL_SRC_FILES := \
     QSEEComFunc.c \
     common.c
 
-ifeq ($(filter-out kitakami,$(SOMC_PLATFORM)),)
-LOCAL_SRC_FILES += fpc_imp_kitakami.c
-LOCAL_CFLAGS += -DFPC_DB_PER_GID
-endif
-
 ifeq ($(filter-out loire,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
@@ -47,11 +42,9 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CONLYFLAGS := -std=c99
 
+ifeq ($(SOMC_KERNEL_VERSION),4.4)
 SYSFS_PREFIX := "/sys/devices/soc/fpc1145_device"
-ifeq ($(SOMC_KERNEL_VERSION),3.10)
-SYSFS_PREFIX := "/sys/devices/soc.0/fpc1145_device"
-endif
-ifeq ($(SOMC_KERNEL_VERSION),4.9)
+else
 SYSFS_PREFIX := "/sys/devices/platform/soc/fpc1145_device"
 endif
 
