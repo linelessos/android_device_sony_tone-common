@@ -26,6 +26,9 @@
 #include <pthread.h>
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 #include <mutex>
+#if PLATFORM_SDK_VERSION >= 28
+#include <bits/epoll_event.h>
+#endif
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 
