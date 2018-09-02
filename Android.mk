@@ -12,13 +12,8 @@ LOCAL_SRC_FILES := \
     QSEEComFunc.c \
     common.c
 
-ifeq ($(filter-out loire,$(SOMC_PLATFORM)),)
+ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
-endif
-
-ifeq ($(filter-out tone,$(SOMC_PLATFORM)),)
-LOCAL_SRC_FILES += fpc_imp_loire_tone.c
-LOCAL_CFLAGS += -DUSE_FPC_TONE
 endif
 
 ifeq ($(filter-out yoshino,$(SOMC_PLATFORM)),)
