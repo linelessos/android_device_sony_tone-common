@@ -30,11 +30,7 @@
 #define QSEE_LIBRARY "libQSEEComAPI.so"
 #endif
 
-#if PLATFORM_SDK_VERSION < 28
-#include <cutils/log.h>
-#else
 #include <log/log.h>
-#endif
 
 //Forward declarations
 
