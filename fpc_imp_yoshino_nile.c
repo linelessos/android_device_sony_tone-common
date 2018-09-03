@@ -343,7 +343,6 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
     int result=-1;
-    int i;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
 //    while(1)
@@ -553,7 +552,6 @@ err_t fpc_load_empty_db(fpc_imp_data_t *data) {
 err_t fpc_load_user_db(fpc_imp_data_t *data, char* path)
 {
     int result;
-    struct stat sb;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     ALOGD("Loading user db from %s\n", path);
@@ -642,8 +640,6 @@ err_t fpc_close(fpc_imp_data_t **data)
 
 err_t fpc_init(fpc_imp_data_t **data)
 {
-    int ret=0;
-
     struct QSEECom_handle * mFPC_handle = NULL;
     struct QSEECom_handle * mKeymasterHandle = NULL;
     struct qsee_handle_t* qsee_handle = NULL;
