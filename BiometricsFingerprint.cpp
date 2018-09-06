@@ -44,11 +44,12 @@ using RequestStatus =
 BiometricsFingerprint *BiometricsFingerprint::sInstance = nullptr;
 
 BiometricsFingerprint::BiometricsFingerprint() : mClientCallback(nullptr), mDevice(nullptr) {
-    sInstance = this; // keep track of the most recent instance
     mDevice = openHal();
     if (!mDevice) {
         ALOGE("Can't open HAL module");
+        return;
     }
+    sInstance = this; // keep track of the most recent instance
 }
 
 BiometricsFingerprint::~BiometricsFingerprint() {
@@ -320,7 +321,8 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
 
 IBiometricsFingerprint* BiometricsFingerprint::getInstance() {
     if (!sInstance) {
-      sInstance = new BiometricsFingerprint();
+        // The constructor will set sInstance.
+        /*sInstance =*/ new BiometricsFingerprint();
     }
     return sInstance;
 }
@@ -332,6 +334,7 @@ sony_fingerprint_device_t* BiometricsFingerprint::openHal() {
 
     if (fpc_init(&fpc_data) < 0) {
         ALOGE("Could not init FPC device");
+        return nullptr;
     }
 
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*) malloc(sizeof(sony_fingerprint_device_t));
