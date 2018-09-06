@@ -720,6 +720,8 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     result = send_buffer_command(fpc_data, FPC_GROUP_FPCDATA, FPC_SET_KEY_DATA, keydata, keylength);
 
+    free(keydata);
+
     ALOGD("FPC_SET_KEY_DATA Result: %d\n", result);
     if(result != 0)
         goto err_alloc;
