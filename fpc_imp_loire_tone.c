@@ -292,7 +292,7 @@ err_t fpc_verify_auth_challenge(fpc_imp_data_t *data, void* hat, uint32_t size)
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int ret = send_buffer_command(ldata, FPC_GROUP_FPCDATA, FPC_AUTHORIZE_ENROL, hat, size);
-    ALOGE("verify auth challenge: %d\n", ret);
+    ALOGI("verify auth challenge: %d\n", ret);
     return ret;
 }
 
@@ -381,9 +381,9 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         ret = fpc_wait_finger_down(data);
         if(!ret)
         {
-            ALOGE("Finger down, capturing image\n");
+            ALOGD("Finger down, capturing image\n");
             ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
-            ALOGE("Image capture result :%d\n", ret);
+            ALOGD("Image capture result :%d\n", ret);
         } else
             ret = 1001;
     } else {
@@ -521,7 +521,7 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t __unu
         ALOGE("Error retrieving fingerprints\n");
     }
 
-    ALOGE("Found %d fingerprints\n", cmd.length);
+    ALOGI("Found %d fingerprints\n", cmd.length);
     for(i=0; i<cmd.length; i++)
     {
         idx_data.prints[i] = cmd.fingerprints[i];
@@ -621,7 +621,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     struct QSEECom_handle * mKeymasterHandle = NULL;
     struct qsee_handle_t* qsee_handle = NULL;
 
-    ALOGE("INIT FPC TZ APP\n");
+    ALOGI("INIT FPC TZ APP\n");
     if(qsee_open_handle(&qsee_handle) != 0) {
         ALOGE("Error loading QSEECom library");
         goto err;
@@ -635,7 +635,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
     fpc_data->auth_id = 0;
 
-    ALOGE("Starting app %s\n", KM_TZAPP_NAME);
+    ALOGI("Starting app %s\n", KM_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_NAME, 1024) < 0) {
         if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_ALT_NAME, 1024) < 0) {
             ALOGE("Could not load app %s or %s\n", KM_TZAPP_NAME, KM_TZAPP_ALT_NAME);
@@ -645,7 +645,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     fpc_data->qsee_handle = qsee_handle;
 
 
-    ALOGE("Starting app %s\n", FP_TZAPP_NAME);
+    ALOGI("Starting app %s\n", FP_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mFPC_handle, FP_TZAPP_PATH, FP_TZAPP_NAME, 128) < 0) {
         ALOGE("Could not load app : %s\n", FP_TZAPP_NAME);
         goto err_keymaster;
@@ -679,9 +679,9 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     keymaster_return_t* ret_data = (keymaster_return_t*) rec_buf;
 
-    ALOGE("Keymaster Response Code : %u\n", ret_data->status);
-    ALOGE("Keymaster Response Length : %u\n", ret_data->length);
-    ALOGE("Keymaster Response Offset: %u\n", ret_data->offset);
+    ALOGI("Keymaster Response Code : %u\n", ret_data->status);
+    ALOGI("Keymaster Response Length : %u\n", ret_data->length);
+    ALOGI("Keymaster Response Offset: %u\n", ret_data->offset);
 
     void * data_buff = &rec_buf[ret_data->offset];
 

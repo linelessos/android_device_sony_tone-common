@@ -344,14 +344,14 @@ int qsee_load_trustlet(struct qsee_handle_t* qsee_handle,
         sz = 1024;
     }
 
-    ALOGE("Starting app %s\n", fname);
+    ALOGI("Starting app %s\n", fname);
     ret = qsee_handle->start_app(clnt_handle, path, fname, sz);
     if (ret < 0) {
         errstr = qsee_error_strings(ret);
         ALOGE("Could not load app %s. Error: %s (%d)\n",
               fname, errstr, ret);
     } else
-        ALOGE("TZ App loaded : %s\n", fname);
+        ALOGI("TZ App loaded: %s\n", fname);
 
     return ret;
 }

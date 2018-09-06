@@ -437,7 +437,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 break;
             case STATE_EXIT:
                 sdev->worker.running_state = STATE_EXIT;
-                ALOGI("%s : AUTH", __func__);
+                ALOGI("%s : EXIT", __func__);
                 thread_running = false;
                 break;
             default:
@@ -490,7 +490,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 ALOGI("%s : Enroll Step", __func__);
                 uint32_t remaining_touches = 0;
                 int ret = fpc_enroll_step(sdev->fpc, &remaining_touches);
-                ALOGE("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
+                ALOGI("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
                 if (ret > 0) {
                     ALOGI("%s : Touches Remaining : %d", __func__, remaining_touches);
                     if (remaining_touches > 0) {
