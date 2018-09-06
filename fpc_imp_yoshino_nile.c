@@ -643,6 +643,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     struct QSEECom_handle * mFPC_handle = NULL;
     struct QSEECom_handle * mKeymasterHandle = NULL;
     struct qsee_handle_t* qsee_handle = NULL;
+    int result = -1;
 
     ALOGE("INIT FPC TZ APP\n");
     if(qsee_open_handle(&qsee_handle) != 0) {
@@ -663,7 +664,7 @@ err_t fpc_init(fpc_imp_data_t **data)
         if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_NAME, 1024) < 0) {
             if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_ALT_NAME, 1024) < 0) {
                  ALOGE("Could not load app %s or %s\n", KM_TZAPP_NAME, KM_TZAPP_ALT_NAME);
-            goto err_alloc;
+                goto err_alloc;
             }
         }
     }
@@ -714,14 +715,14 @@ err_t fpc_init(fpc_imp_data_t **data)
     fpc_data->ihandle.ion_fd = 0;
     if (fpc_data->qsee_handle->ion_alloc(&fpc_data->ihandle, 0x40) < 0) {
         ALOGE("ION allocation failed");
-        goto err_keymaster;
+        goto err_alloc;
     }
 
-    int result = send_buffer_command(fpc_data, FPC_GROUP_FPCDATA, FPC_SET_KEY_DATA, keydata, keylength);
+    result = send_buffer_command(fpc_data, FPC_GROUP_FPCDATA, FPC_SET_KEY_DATA, keydata, keylength);
 
     ALOGD("FPC_SET_KEY_DATA Result: %d\n", result);
     if(result != 0)
-        return result;
+        goto err_alloc;
 
     fpc_deep_sleep((fpc_imp_data_t*)fpc_data);
 
@@ -745,5 +746,5 @@ err_alloc:
 err_qsee:
     qsee_free_handle(&qsee_handle);
 err:
-    return -1;
+    return result;
 }
