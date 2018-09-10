@@ -32,20 +32,18 @@ extern "C" {
 #define KM_TZAPP_ALT_NAME ""
 
 #define BUFFER_SIZE 64
-
 #define TZ_RESPONSE_OFFSET 256
-
 #define FINGERPRINT_MAX_COUNT 5
 #define AUTH_RESULT_LENGTH 69
 
 enum fingerprint_group_t {
-  FPC_GROUP_DB = 0x2,
-  FPC_GROUP_FPCDATA = 0x3,
-  FPC_GROUP_DEBUG = 0x6, // I think?
-  FPC_GROUP_QC = 0x07,
-  FPC_GROUP_INFO = 0x09,
-  FPC_GROUP_SENSOR = 0xA,
-  FPC_GROUP_TEMPLATE = 0xB,
+    FPC_GROUP_DB = 0x2,
+    FPC_GROUP_FPCDATA = 0x3,
+    FPC_GROUP_DEBUG = 0x6, // I think?
+    FPC_GROUP_QC = 0x07,
+    FPC_GROUP_INFO = 0x09,
+    FPC_GROUP_SENSOR = 0xA,
+    FPC_GROUP_TEMPLATE = 0xB,
 };
 
 enum fingerprint_db_cmd_t {
@@ -61,7 +59,6 @@ enum fingerprint_fpcdata_cmd_t {
     FPC_SET_KEY_DATA = 0x05,
 };
 
-
 //enumerate tz app command ID's
 enum fingerprint_sensor_cmd_t {
     FPC_WAIT_FINGER_LOST = 0x00,
@@ -69,7 +66,7 @@ enum fingerprint_sensor_cmd_t {
     FPC_CAPTURE_IMAGE = 0x3,
     FPC_DEEP_SLEEP = 0x04,
     FPC_GET_OTP_INFO = 0x06,
-//    FPC_INIT Is unused on Nile
+//  FPC_INIT Is unused on Nile
 };
 
 enum fingerprint_templates_cmd_t {
@@ -112,13 +109,11 @@ typedef struct {
     uint32_t length; //Some length of data supplied by previous modified command
 } keymaster_cmd_t;
 
-
 typedef struct {
-  int32_t status;
-  uint32_t offset;
-  uint32_t length;
+    int32_t status;
+    uint32_t offset;
+    uint32_t length;
 } keymaster_return_t;
-
 
 typedef struct {
     uint32_t group_id;
@@ -135,11 +130,11 @@ typedef struct {
 } fpc_set_gid_t;
 
 typedef struct {
-  uint32_t group_id;
-  uint32_t cmd_id;
-  int32_t status;
-  uint32_t length;
-  char data[];
+    uint32_t group_id;
+    uint32_t cmd_id;
+    int32_t status;
+    uint32_t length;
+    char data[];
 } fpc_send_keydata_t;
 
 typedef struct {
@@ -164,19 +159,19 @@ typedef struct {
 } fpc_end_enrol_t;
 
 typedef struct {
-  uint32_t group_id;
-  uint32_t cmd_id;
-  int32_t status;
-  uint32_t length;
-  char* data;
+    uint32_t group_id;
+    uint32_t cmd_id;
+    int32_t status;
+    uint32_t length;
+    char* data;
 } fpc_send_buffer_t;
 
 typedef struct {
-  uint32_t commandgroup;
-  uint32_t command;
-  int32_t status;
-  uint32_t id;
-  uint32_t unk1[2];
+    uint32_t commandgroup;
+    uint32_t command;
+    int32_t status;
+    uint32_t id;
+    uint32_t unk1[2];
 } fpc_send_identify_t;
 
 typedef struct {
@@ -186,7 +181,6 @@ typedef struct {
     uint32_t length;
     uint32_t fingerprints[FINGERPRINT_MAX_COUNT];
 } fpc_fingerprint_list_t;
-
 
 typedef struct {
     uint32_t group_id;
@@ -226,8 +220,6 @@ struct fpc_get_identify_stats {
     uint32_t stats[7];
 }
 */
-
-
 
 #ifdef __cplusplus
 }

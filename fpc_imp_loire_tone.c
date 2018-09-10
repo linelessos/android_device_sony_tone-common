@@ -18,11 +18,6 @@
 #include "QSEEComFunc.h"
 #include "fpc_imp.h"
 
-#ifdef USE_FPC_TONE
-#include "tz_api_tone.h"
-#else
-#include "tz_api_loire.h"
-#endif
 #include "tz_api_loire_tone.h"
 
 #include "common.h"
