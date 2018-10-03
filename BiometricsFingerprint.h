@@ -104,6 +104,9 @@ private:
     static Return<RequestStatus> ErrorFilter(int32_t error);
     static BiometricsFingerprint* sInstance;
 
+    // Internal machinery to set the active group
+    static int __setActiveGroup(sony_fingerprint_device_t *sdev, uint32_t gid);
+
     //Auth / Enroll thread functions
     static void * worker_thread(void *args);
     static enum worker_state getState(sony_fingerprint_device_t* sdev);
