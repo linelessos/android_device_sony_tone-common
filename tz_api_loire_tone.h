@@ -195,8 +195,7 @@ typedef struct {
 typedef struct {
     uint32_t group_id;
     uint32_t cmd_id;
-    uint32_t result;
-    uint32_t auth_id;
+    uint64_t auth_id;
 } fpc_get_db_id_cmd_t;
 
 #ifdef __cplusplus

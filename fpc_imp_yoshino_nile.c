@@ -47,7 +47,7 @@ typedef struct {
     struct QSEECom_handle *fpc_handle;
     struct qsee_handle_t* qsee_handle;
     struct qcom_km_ion_info_t ihandle;
-    uint32_t auth_id;
+    uint64_t auth_id;
 } fpc_data_t;
 
 err_t fpc_deep_sleep(fpc_imp_data_t *data);
