@@ -37,19 +37,12 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CONLYFLAGS := -std=c99
 
-ifeq ($(SOMC_KERNEL_VERSION),4.4)
-SYSFS_PREFIX := "/sys/devices/soc/fpc1145_device"
-else
-SYSFS_PREFIX := "/sys/devices/platform/soc/fpc1145_device"
-endif
-
 ifeq ($(TARGET_COMPILE_WITH_MSM_KERNEL),true)
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 endif
 
 LOCAL_CFLAGS += \
-    -DSYSFS_PREFIX=\"$(SYSFS_PREFIX)\" \
     -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
     -Wno-missing-field-initializers \
     -Wno-unused-variable \
