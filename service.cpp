@@ -16,24 +16,26 @@
 
 #define LOG_TAG "android.hardware.biometrics.fingerprint@2.1-service"
 
-#include <android/log.h>
 #include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportSupport.h>
-#include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
-#include <android/hardware/biometrics/fingerprint/2.1/types.h>
 #include "BiometricsFingerprint.h"
+#include "BiometricsFingerprint_efp.h"
 
+using android::NO_ERROR;
 using android::sp;
 using android::status_t;
-using android::NO_ERROR;
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
-using android::hardware::biometrics::fingerprint::V2_1::implementation::
-    BiometricsFingerprint;
+using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint;
+using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint_efp;
 
 int main() {
+#ifdef USE_FPC_NILE
+    android::sp<IBiometricsFingerprint> bio = new BiometricsFingerprint_efp();
+#else
     android::sp<IBiometricsFingerprint> bio = BiometricsFingerprint::getInstance();
+#endif
 
     configureRpcThreadpool(1, true /*callerWillJoin*/);
 
@@ -50,5 +52,5 @@ int main() {
 
     joinRpcThreadpool();
 
-    return 0; // should never get here
+    return 0;  // should never get here
 }
