@@ -12,7 +12,9 @@ LOCAL_SRC_FILES := \
     common.c
 
 # TEMPORARY:
-LOCAL_CPPFLAGS = -Wno-unused-parameter
+LOCAL_CPPFLAGS += \
+    -Wno-unused-parameter \
+    -fexceptions
 
 ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c

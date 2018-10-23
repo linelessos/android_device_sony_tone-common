@@ -11,6 +11,8 @@ namespace V2_1 {
 namespace implementation {
 
 BiometricsFingerprint_efp::BiometricsFingerprint_efp() {
+    QSEEKeymasterTrustlet keymaster;
+    mMasterKey = keymaster.GetKey();
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {

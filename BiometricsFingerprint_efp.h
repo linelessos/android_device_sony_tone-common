@@ -6,7 +6,10 @@
 
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 
+#include <array>
 #include <mutex>
+
+#include "QSEEKeymasterTrustlet.h"
 
 namespace android {
 namespace hardware {
@@ -43,6 +46,7 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
    private:
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
+    MasterKey mMasterKey;
 };
 
 }  // namespace implementation
