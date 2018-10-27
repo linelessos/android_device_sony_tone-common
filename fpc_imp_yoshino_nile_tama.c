@@ -20,6 +20,8 @@
 
 #ifdef USE_FPC_NILE
 #include "tz_api_nile.h"
+#elif USE_FPC_TAMA
+#include "tz_api_tama.h"
 #else
 #include "tz_api_yoshino.h"
 #endif
@@ -49,7 +51,7 @@ typedef struct {
 err_t fpc_deep_sleep(fpc_imp_data_t *data);
 
 static const char *error_strings[] = {
-#ifdef USE_FPC_NILE
+#if defined(USE_FPC_NILE) || defined(USE_FPC_TAMA)
     "FPC_ERROR_TEMPLATE_CORRUPTED",
     "FPC_ERROR_DB",
     "FPC_ERROR_CRYPTO",

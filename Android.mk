@@ -17,12 +17,17 @@ LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
 
 ifeq ($(filter-out yoshino,$(SOMC_PLATFORM)),)
-LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
+LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
 endif
 
 ifeq ($(filter-out nile,$(SOMC_PLATFORM)),)
-LOCAL_SRC_FILES += fpc_imp_yoshino_nile.c
+LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
 LOCAL_CFLAGS += -DUSE_FPC_NILE
+endif
+
+ifeq ($(filter-out tama,$(SOMC_PLATFORM)),)
+LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
+LOCAL_CFLAGS += -DUSE_FPC_TAMA
 endif
 
 LOCAL_SHARED_LIBRARIES := \
