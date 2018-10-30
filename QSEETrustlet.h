@@ -31,13 +31,14 @@ class QSEETrustlet {
         const LockedIONBuffer &operator=(const LockedIONBuffer &) = delete;
 
         void *operator*();
+        const void *operator*() const;
 
         friend class QSEETrustlet;
     };
     friend class LockedIONBuffer;
 
     LockedIONBuffer GetLockedBuffer();
-    int SendCommand(void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len);
+    int SendCommand(const void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len);
 
    private:
     std::mutex mBufferMutex;
@@ -45,7 +46,7 @@ class QSEETrustlet {
 
     typedef int (*start_app_def)(struct QSEECom_handle **clnt_handle, const char *path, const char *fname, uint32_t sb_size);
     typedef int (*shutdown_app_def)(struct QSEECom_handle **clnt_handle);
-    typedef int (*send_cmd_def)(struct QSEECom_handle *handle, void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len);
+    typedef int (*send_cmd_def)(struct QSEECom_handle *handle, const void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len);
     // typedef int (*send_modified_cmd_def)(struct QSEECom_handle *handle, void *send_buf, uint32_t sbuf_len, void *resp_buf, uint32_t rbuf_len, struct QSEECom_ion_fd_info *ifd_data);
 
     static void *libHandle;

@@ -98,6 +98,10 @@ void *QSEETrustlet::LockedIONBuffer::operator*() {
     return mTrustlet->mHandle->ion_sbuffer;
 }
 
-int QSEETrustlet::SendCommand(void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len) {
+const void *QSEETrustlet::LockedIONBuffer::operator*() const {
+    return mTrustlet->mHandle->ion_sbuffer;
+}
+
+int QSEETrustlet::SendCommand(const void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len) {
     return send_cmd(mHandle, send_buf, sbuf_len, rcv_buf, rbuf_len);
 }
