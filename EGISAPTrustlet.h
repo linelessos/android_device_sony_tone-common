@@ -69,6 +69,7 @@ static_assert(offsetof(command_buffer_t, match_result_length) == 0x160, "");
 static_assert(offsetof(command_buffer_t, enroll_finger_id) == 0x164, "");
 
 enum class ExtraCommand : uint32_t {
+    GetRand64 = 0xd,
     SetMasterKey = 0x10,
 };
 
@@ -187,5 +188,6 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendDataInit();
 
     // Extra commands:
+    uint64_t GetRand64();
     int SetMasterKey(MasterKey &);
 };

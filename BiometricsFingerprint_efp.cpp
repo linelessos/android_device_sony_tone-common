@@ -18,6 +18,8 @@ BiometricsFingerprint_efp::BiometricsFingerprint_efp() {
     loops.Prepare();
 
     loops.SetMasterKey(mMasterKey);
+
+    mAuthenticatorId = loops.GetRand64();
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
@@ -46,8 +48,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::postEnroll() {
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::getAuthenticatorId() {
-    ALOGE("%s not implemented!", __func__);
-    return -1;
+    return mAuthenticatorId;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::cancel() {

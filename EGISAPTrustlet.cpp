@@ -1,6 +1,9 @@
 #include "EGISAPTrustlet.h"
 #include <string.h>
 
+#define LOG_TAG "FPC ET"
+#include <log/log.h>
+
 EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", EGISAPTrustlet::API::MinBufferSize()) {
     SendDataInit();
 }
@@ -42,6 +45,26 @@ int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &buffer) {
 
 int EGISAPTrustlet::SendDataInit() {
     return SendCommand(Command::DataInit);
+}
+
+uint64_t EGISAPTrustlet::GetRand64() {
+    auto lockedBuffer = GetLockedAPI();
+    lockedBuffer.GetRequest().extra_buffer.command = ExtraCommand::GetRand64;
+    auto rc = SendExtraCommand(lockedBuffer);
+    if (rc) {
+        // Very unlikely
+        ALOGE("%s failed with %x", __func__, rc);
+        return -1;
+    }
+    auto s = lockedBuffer.GetResponse().extra_buffer.data_size;
+    if (s != sizeof(uint64_t)) {
+        // Very unlikely
+        ALOGE("%s returned wrong data size of %d", __func__, s);
+        return -1;
+    }
+    auto rand = *reinterpret_cast<uint64_t *>(lockedBuffer.GetResponse().extra_buffer.data);
+    ALOGD("%s: %#lx", __func__, rand);
+    return rand;
 }
 
 int EGISAPTrustlet::SetMasterKey(MasterKey &key) {

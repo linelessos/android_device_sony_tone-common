@@ -47,6 +47,7 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     MasterKey mMasterKey;
+    uint64_t mAuthenticatorId;
     EgisOperationLoops loops;
 };
 
