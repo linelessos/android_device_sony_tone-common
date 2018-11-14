@@ -8,7 +8,7 @@
 
 #include <array>
 #include <mutex>
-
+#include "EgisOperationLoops.h"
 #include "QSEEKeymasterTrustlet.h"
 
 namespace android {
@@ -47,6 +47,7 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     MasterKey mMasterKey;
+    EgisOperationLoops loops;
 };
 
 }  // namespace implementation

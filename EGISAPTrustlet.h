@@ -3,15 +3,70 @@
 #include "QSEEKeymasterTrustlet.h"
 #include "QSEETrustlet.h"
 
+typedef struct {
+    int qty;
+    int corner_count;
+    int coverage;
+    int mat1[2];
+    int mat2[3];
+    int other;
+} match_result;
+
+static_assert(offsetof(match_result, mat1) == 0xc, "");
+static_assert(offsetof(match_result, mat2) == 0x14, "");
+static_assert(offsetof(match_result, other) == 0x20, "");
+
+enum class Step : uint32_t {
+    Done = 0,
+    Init = 1,
+    WaitFingerprint = 4,
+    NotReady = 7,
+    Error = 8,  // Indication for a reset
+};
+
 /**
  * Default command structure.
  * This mostly encapsulates generic communication.
  */
 typedef struct {
-    char pad[0x168];
+    Step step;
+    int timeout;
+    int bad_image_reason;
+    int pading0[2];
+    int match_score;
+    int padding1;
+    int enroll_status;
+    int enroll_steps_done;
+    int enroll_steps_required;
+
+    char padding2[0x30 - 0x28];
+
+    uint32_t zeroed_for_enroll;
+
+    uint32_t finger_id;
+    int32_t finger_list[5];
+    int finger_count;
+
+    char padding3[0x10];
+    match_result match_result;
+
+    char padding4[0x100 - sizeof(match_result)];
+
+    int match_result_length;
+    uint32_t enroll_finger_id;
 } command_buffer_t;
 
-static_assert(sizeof(command_buffer_t) == 0x168, "");
+static_assert(sizeof(command_buffer_t) == 0x168, "buffer_168 has wrong size!");
+static_assert(offsetof(command_buffer_t, bad_image_reason) == 0x8, "");
+static_assert(offsetof(command_buffer_t, match_score) == 0x14, "");
+static_assert(offsetof(command_buffer_t, enroll_status) == 0x1c, "");
+static_assert(offsetof(command_buffer_t, zeroed_for_enroll) == 0x30, "");
+static_assert(offsetof(command_buffer_t, finger_id) == 0x34, "");
+static_assert(offsetof(command_buffer_t, finger_list) == 0x38, "");
+static_assert(offsetof(command_buffer_t, finger_count) == 0x4c, "");
+static_assert(offsetof(command_buffer_t, match_result) == 0x60, "");
+static_assert(offsetof(command_buffer_t, match_result_length) == 0x160, "");
+static_assert(offsetof(command_buffer_t, enroll_finger_id) == 0x164, "");
 
 enum class ExtraCommand : uint32_t {
     SetMasterKey = 0x10,
@@ -48,8 +103,10 @@ static_assert(offsetof(extra_buffer_t, data_size) == 0x328, "");
 
 enum class Command : uint32_t {
     Prepare = 0,
+    Cleanup = 1,
     ExtraCommand = 0xa,
     DataInit = 0x10,
+    DataUninit = 0x11,
 };
 
 /**
