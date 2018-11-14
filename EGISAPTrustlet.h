@@ -13,6 +13,10 @@ typedef struct {
 
 static_assert(sizeof(command_buffer_t) == 0x168, "");
 
+enum class ExtraCommand : uint32_t {
+    SetMasterKey = 0x10,
+};
+
 /**
  * A secondary API to process so-called "extra" commands.
  */
@@ -25,7 +29,7 @@ typedef struct {
     // NOTE: This field is duplicated across structures:
     uint64_t secure_user_id;
     int32_t finger_list[5];
-    uint32_t command;
+    ExtraCommand command;
 
     // Field for arbitrary data:
     char data[0x200];
@@ -42,11 +46,17 @@ static_assert(offsetof(extra_buffer_t, command) == 0x124, "");
 static_assert(offsetof(extra_buffer_t, data) == 0x128, "");
 static_assert(offsetof(extra_buffer_t, data_size) == 0x328, "");
 
+enum class Command : uint32_t {
+    Prepare = 0,
+    ExtraCommand = 0xa,
+    DataInit = 0x10,
+};
+
 /**
  * The datastructure through which this userspace HAL communicates with the TZ app.
  */
 typedef struct {
-    uint32_t command;
+    Command command;
     uint32_t padding0;
     uint32_t unused_return_command;
     uint32_t result;
@@ -111,7 +121,7 @@ class EGISAPTrustlet : public QSEETrustlet {
     EGISAPTrustlet();
 
     int SendCommand(API &);
-    int SendCommand(int command);
+    int SendCommand(Command command);
     API GetLockedAPI();
     int SendExtraCommand(API &);
 

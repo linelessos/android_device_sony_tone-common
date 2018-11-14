@@ -13,7 +13,7 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     return lockedBuffer.GetResponse().result;
 }
 
-int EGISAPTrustlet::SendCommand(int command) {
+int EGISAPTrustlet::SendCommand(Command command) {
     auto lockedBuffer = GetLockedAPI();
     lockedBuffer.GetRequest().command = command;
     return SendCommand(lockedBuffer);
@@ -31,24 +31,24 @@ EGISAPTrustlet::API EGISAPTrustlet::GetLockedAPI() {
 }
 
 int EGISAPTrustlet::SendExtraCommand(EGISAPTrustlet::API &buffer) {
-    buffer.GetRequest().command = 0xa;
+    buffer.GetRequest().command = Command::ExtraCommand;
     return SendCommand(buffer);
 }
 
 int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &buffer) {
-    buffer.GetRequest().command = 0x0;
+    buffer.GetRequest().command = Command::Prepare;
     return SendCommand(buffer);
 }
 
 int EGISAPTrustlet::SendDataInit() {
-    return SendCommand(0x10);
+    return SendCommand(Command::DataInit);
 }
 
 int EGISAPTrustlet::SetMasterKey(MasterKey &key) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
 
-    extra.command = 0x10;
+    extra.command = ExtraCommand::SetMasterKey;
     extra.data_size = key.size();
 
     memcpy(extra.data, key.data(), key.size());
