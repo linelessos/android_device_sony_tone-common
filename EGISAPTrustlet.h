@@ -160,6 +160,7 @@ class EGISAPTrustlet : public QSEETrustlet {
         QSEETrustlet::LockedIONBuffer mLockedBuffer;
 
        public:
+        // TODO: Inline or define in cpp!!!
         API(QSEETrustlet::LockedIONBuffer &&lockedBuffer) : mLockedBuffer(std::move(lockedBuffer)) {
         }
 
@@ -174,6 +175,8 @@ class EGISAPTrustlet : public QSEETrustlet {
         static constexpr size_t MinBufferSize() {
             return sizeof(trustlet_buffer_t) + BaseOffset + ResponseOffset;
         }
+
+        friend class EGISAPTrustlet;
     };
 
    public:

@@ -9,7 +9,19 @@ EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", EGISAPTrustlet::API:
 }
 
 int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
-    int rc = QSEETrustlet::SendCommand(&lockedBuffer.GetRequest(), sizeof(trustlet_buffer_t), &lockedBuffer.GetResponse(), sizeof(trustlet_buffer_t));
+    struct __attribute__((__packed__)) APIPrefix {
+        uint32_t a;
+        char padding[8];
+        uint64_t b, c;
+    };
+    static_assert(offsetof(APIPrefix, b) == 0xc, "");
+    static_assert(offsetof(APIPrefix, c) == 0x14, "");
+    auto prefix = reinterpret_cast<APIPrefix *>(*lockedBuffer.mLockedBuffer);
+    prefix->a = 0xe0;
+    prefix->b = 0;
+    prefix->c = 0;
+
+    int rc = QSEETrustlet::SendCommand(prefix, sizeof(trustlet_buffer_t), prefix, sizeof(trustlet_buffer_t));
     if (rc)
         return rc;
 
@@ -27,8 +39,7 @@ int EGISAPTrustlet::SendCommand(Command command) {
  */
 EGISAPTrustlet::API EGISAPTrustlet::GetLockedAPI() {
     auto lockedBuffer = GetLockedBuffer();
-    auto tb = reinterpret_cast<trustlet_buffer_t *>(*lockedBuffer);
-    memset(tb, 0, sizeof(trustlet_buffer_t));
+    memset(*lockedBuffer, 0, EGISAPTrustlet::API::MinBufferSize());
 
     return lockedBuffer;
 }
