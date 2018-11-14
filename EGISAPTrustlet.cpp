@@ -47,6 +47,23 @@ int EGISAPTrustlet::SendDataInit() {
     return SendCommand(Command::DataInit);
 }
 
+int EGISAPTrustlet::SetUserDataPath(const char *path) {
+    auto lockedBuffer = GetLockedAPI();
+    auto &extra = lockedBuffer.GetRequest().extra_buffer;
+    extra.command = ExtraCommand::SetUserDataPath;
+
+    const auto len = strlen(path);
+    if (len >= sizeof(extra.string_field) - 1) {
+        ALOGE("%s path %s is too long!", __func__, path);
+        return -1;
+    }
+
+    // Copy terminating null-character:
+    memcpy(extra.string_field, path, len + 1);
+
+    return SendExtraCommand(lockedBuffer);
+}
+
 uint64_t EGISAPTrustlet::GetRand64() {
     auto lockedBuffer = GetLockedAPI();
     lockedBuffer.GetRequest().extra_buffer.command = ExtraCommand::GetRand64;

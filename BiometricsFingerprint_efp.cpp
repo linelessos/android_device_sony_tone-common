@@ -67,8 +67,10 @@ Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t f
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    ALOGD("%s: gid = %u, path = %s", __func__, gid, storePath.c_str());
+    mGid = gid;
+    int rc = loops.SetUserDataPath(storePath.c_str());
+    return rc ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::authenticate(uint64_t operationId, uint32_t gid) {
