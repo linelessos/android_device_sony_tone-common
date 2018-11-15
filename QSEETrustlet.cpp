@@ -2,10 +2,9 @@
 
 #include <dlfcn.h>
 #include <errno.h>
-// #include <stdlib.h>
 #include <string.h>
-
 #include <algorithm>
+#include "FormatException.hpp"
 
 #define LOG_TAG "FPC QSEETrustlet"
 #include <log/log.h>
@@ -23,7 +22,9 @@ QSEETrustlet::send_cmd_def QSEETrustlet::send_cmd = nullptr;
 QSEETrustlet::QSEETrustlet(const char *app_name, uint32_t shared_buffer_size, const char *path) {
     EnsureInitialized();
 
-    start_app(&mHandle, path, app_name, shared_buffer_size);
+    int rc = start_app(&mHandle, path, app_name, shared_buffer_size);
+    if (rc)
+        throw FormatException("start_app failed with rc=%d", rc);
 }
 
 QSEETrustlet::~QSEETrustlet() {
@@ -52,19 +53,19 @@ void QSEETrustlet::EnsureInitialized() {
     start_app = (start_app_def)dlsym(libHandle, "QSEECom_start_app");
     if (start_app == nullptr) {
         ALOGE("Error loading QSEECom_start_app: %s\n", strerror(errno));
-        throw "Failed to load QSEECom_start_app!";
+        throw FormatException("Failed to load QSEECom_start_app!");
     }
 
     shutdown_app = (shutdown_app_def)dlsym(libHandle, "QSEECom_shutdown_app");
     if (shutdown_app == nullptr) {
         ALOGE("Error loading QSEECom_shutdown_app: %s\n", strerror(errno));
-        throw "Failed to load QSEECom_shutdown_app!";
+        throw FormatException("Failed to load QSEECom_shutdown_app!");
     }
 
     send_cmd = (send_cmd_def)dlsym(libHandle, "QSEECom_send_cmd");
     if (send_cmd == nullptr) {
         ALOGE("Error loading QSEECom_send_cmd: %s\n", strerror(errno));
-        throw "Failed to load QSEECom_send_cmd!";
+        throw FormatException("Failed to load QSEECom_send_cmd!");
     }
 }
 

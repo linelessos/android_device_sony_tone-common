@@ -1,8 +1,11 @@
 #include "EgisFpDevice.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include "FormatException.hpp"
 
 struct ioctl_cmd {
     int interurpt_mode;
@@ -14,7 +17,7 @@ EgisFpDevice::EgisFpDevice() {
     mFd = open(DEV_PATH, O_RDWR);
 
     if (mFd < 0)
-        throw "Failed to open fingerprint device!";
+        throw FormatException("Failed to open fingerprint device! fd=%d, strerror=%s", mFd, strerror(errno));
 }
 
 EgisFpDevice::~EgisFpDevice() {
@@ -44,6 +47,6 @@ bool EgisFpDevice::WaitInterrupt(int timeout) {
     struct pollfd pfd = {.fd = mFd, .events = POLLIN};
     int rc = poll(&pfd, 1, timeout);
     if (rc == -1)
-        throw "Poll error";
+        throw FormatException("Poll error");
     return rc && pfd.revents & POLLIN;
 }

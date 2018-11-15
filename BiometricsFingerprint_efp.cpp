@@ -1,4 +1,5 @@
 #include "BiometricsFingerprint_efp.h"
+#include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
 #include <log/log.h>
@@ -14,10 +15,13 @@ BiometricsFingerprint_efp::BiometricsFingerprint_efp() {
     QSEEKeymasterTrustlet keymaster;
     mMasterKey = keymaster.GetKey();
 
-    loops.SendDataInit();
-    loops.Prepare();
+    int rc = loops.Prepare();
+    if (rc)
+        throw FormatException("Prepare failed with rc = %d", rc);
 
-    loops.SetMasterKey(mMasterKey);
+    rc = loops.SetMasterKey(mMasterKey);
+    if (rc)
+        throw FormatException("SetMasterKey failed with rc = %d", rc);
 
     mAuthenticatorId = loops.GetRand64();
 }

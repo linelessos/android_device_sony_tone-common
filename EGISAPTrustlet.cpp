@@ -1,14 +1,22 @@
 #include "EGISAPTrustlet.h"
 #include <string.h>
+#include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
 #include <log/log.h>
 
 EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", EGISAPTrustlet::API::MinBufferSize()) {
-    SendDataInit();
+    int rc = SendDataInit();
+    if (rc)
+        throw FormatException("SendDataInit failed with rc = %d", rc);
 }
 
 int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
+    if (lockedBuffer.GetRequest().command == Command::ExtraCommand)
+        ALOGD("%s: Sending extra-command %#x", __func__, lockedBuffer.GetRequest().extra_buffer.command);
+    else
+        ALOGD("%s: Sending command %#x (step = %d)", __func__, lockedBuffer.GetRequest().command, lockedBuffer.GetRequest().command_buffer.step);
+
     struct __attribute__((__packed__)) APIPrefix {
         uint32_t a;
         char padding[8];
@@ -21,9 +29,11 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     prefix->b = 0;
     prefix->c = 0;
 
-    int rc = QSEETrustlet::SendCommand(prefix, sizeof(trustlet_buffer_t), prefix, sizeof(trustlet_buffer_t));
-    if (rc)
+    int rc = QSEETrustlet::SendCommand(prefix, 0x880, prefix, 0x840);
+    if (rc) {
+        ALOGE("SendCommand failed with rc = %d", rc);
         return rc;
+    }
 
     return lockedBuffer.GetResponse().result;
 }
@@ -81,7 +91,7 @@ uint64_t EGISAPTrustlet::GetRand64() {
     auto rc = SendExtraCommand(lockedBuffer);
     if (rc) {
         // Very unlikely
-        ALOGE("%s failed with %x", __func__, rc);
+        ALOGE("%s failed with %d", __func__, rc);
         return -1;
     }
     auto s = lockedBuffer.GetResponse().extra_buffer.data_size;

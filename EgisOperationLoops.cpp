@@ -44,7 +44,7 @@ int EgisOperationLoops::ConvertReturnCode(int rc) {
         case 0x30:
             return ~0x5;  // -6: recalibrate
     }
-    ALOGE("Invalid return code %x", rc);
+    ALOGE("Invalid return code %#x", rc);
     return -1;
 }
 
