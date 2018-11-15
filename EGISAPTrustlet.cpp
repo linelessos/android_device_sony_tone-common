@@ -3,7 +3,47 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
+#define LOG_NDEBUG 0
 #include <log/log.h>
+
+void log_hex(const char *data, int length) {
+    if (length <= 0 || data == NULL)
+        return;
+
+    // Trim leading nullsi, 4 bytes at a time:
+    int cnt = 0;
+    for (; length > 0 && !*(const uint32_t *)data; cnt++, data += 4, length -= 4)
+        ;
+
+    // Trim trailing nulls:
+    for (; length > 0 && !data[length - 1]; --length)
+        ;
+
+    if (length <= 0) {
+        ALOGV("All data is 0!");
+        return;
+    }
+
+    if (cnt)
+        ALOGV("Skipped %d integers (%d bytes)", cnt, cnt * 4);
+
+    // Format the byte-buffer into hexadecimals:
+    char *buf = (char *)malloc(length * 3 + 10);
+    char *base = buf;
+    for (int i = 0; i < length; i++) {
+        sprintf(buf, "%02X", data[i]);
+        buf += 2;
+        *buf++ = ' ';
+
+        if (i % 16 == 15 || i + 1 == length) {
+            *buf = '\0';
+            ALOGV("%s", base);
+            buf = base;
+        }
+    }
+
+    free(base);
+}
 
 EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", 0x2400) {
     int rc = SendDataInit();
@@ -34,11 +74,20 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     lockedBuffer.GetRequest().command_buffer_size = sizeof(command_buffer_t);
     lockedBuffer.GetRequest().extra_buffer_type_size = sizeof(extra_buffer_t);
 
+#if !LOG_NDEBUG
+    log_hex(reinterpret_cast<const char *>(&lockedBuffer.GetRequest()), sizeof(trustlet_buffer_t));
+#endif
+
     int rc = QSEETrustlet::SendCommand(prefix, 0x880, prefix, 0x840);
     if (rc) {
         ALOGE("SendCommand failed with rc = %d", rc);
         return rc;
     }
+
+#if !LOG_NDEBUG
+    ALOGV("Response:");
+    log_hex(reinterpret_cast<const char *>(&lockedBuffer.GetResponse()), sizeof(trustlet_buffer_t));
+#endif
 
     return lockedBuffer.GetResponse().result;
 }
