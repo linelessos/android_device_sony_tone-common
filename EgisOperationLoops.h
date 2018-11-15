@@ -14,4 +14,5 @@ class EgisOperationLoops : public EGISAPTrustlet {
 
    public:
     int Prepare();
+    int Cancel();
 };

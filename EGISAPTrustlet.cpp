@@ -92,10 +92,14 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     return lockedBuffer.GetResponse().result;
 }
 
+int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &buffer, Command command) {
+    buffer.GetRequest().command = command;
+    return SendCommand(buffer);
+}
+
 int EGISAPTrustlet::SendCommand(Command command) {
     auto lockedBuffer = GetLockedAPI();
-    lockedBuffer.GetRequest().command = command;
-    return SendCommand(lockedBuffer);
+    return SendCommand(lockedBuffer, command);
 }
 
 /**
@@ -109,13 +113,15 @@ EGISAPTrustlet::API EGISAPTrustlet::GetLockedAPI() {
 }
 
 int EGISAPTrustlet::SendExtraCommand(EGISAPTrustlet::API &buffer) {
-    buffer.GetRequest().command = Command::ExtraCommand;
-    return SendCommand(buffer);
+    return SendCommand(buffer, Command::ExtraCommand);
 }
 
-int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &buffer) {
-    buffer.GetRequest().command = Command::Prepare;
-    return SendCommand(buffer);
+int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::Prepare);
+}
+
+int EGISAPTrustlet::SendCancel(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::Cancel);
 }
 
 int EGISAPTrustlet::SendDataInit() {

@@ -71,3 +71,20 @@ int EgisOperationLoops::Prepare() {
         cmdIn.step = cmdOut.step;
     }
 }
+
+int EgisOperationLoops::Cancel() {
+    int rc = 0;
+    auto lockedBuffer = GetLockedAPI();
+    auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
+    const auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
+    do {
+        cmdIn.step = Step::Cancel;
+        rc = SendCancel(lockedBuffer);
+        if (rc)
+            break;
+    } while (cmdOut.step != Step::Done);
+    rc = ConvertReturnCode(rc);
+    if (rc)
+        ALOGE("Failed to cancel, rc = %d", rc);
+    return rc;
+}

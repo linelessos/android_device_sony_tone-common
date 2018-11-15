@@ -23,6 +23,7 @@ enum class Step : uint32_t {
     WaitFingerprint = 4,
     NotReady = 7,
     Error = 8,  // Indication for a reset
+    Cancel = 0x19,
 };
 
 /**
@@ -107,6 +108,7 @@ static_assert(offsetof(extra_buffer_t, data_size) == 0x328, "");
 enum class Command : uint32_t {
     Prepare = 0,
     Cleanup = 1,
+    Cancel = 8,
     ExtraCommand = 0xa,
     DataInit = 0x10,
     DataUninit = 0x11,
@@ -184,12 +186,14 @@ class EGISAPTrustlet : public QSEETrustlet {
     EGISAPTrustlet();
 
     int SendCommand(API &);
-    int SendCommand(Command command);
+    int SendCommand(API &, Command);
+    int SendCommand(Command);
     API GetLockedAPI();
     int SendExtraCommand(API &);
 
     // Normal commands:
     int SendPrepare(API &);
+    int SendCancel(API &);
     int SendDataInit();
 
     // Extra commands:
