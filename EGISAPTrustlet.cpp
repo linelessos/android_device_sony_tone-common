@@ -5,7 +5,7 @@
 #define LOG_TAG "FPC ET"
 #include <log/log.h>
 
-EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", EGISAPTrustlet::API::MinBufferSize()) {
+EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", 0x2400) {
     int rc = SendDataInit();
     if (rc)
         throw FormatException("SendDataInit failed with rc = %d", rc);
@@ -29,6 +29,11 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     prefix->b = 0;
     prefix->c = 0;
 
+    // Always set the fixed size fields of the command and extra buffers, even if they
+    // are not used to pass any data.
+    lockedBuffer.GetRequest().command_buffer_size = sizeof(command_buffer_t);
+    lockedBuffer.GetRequest().extra_buffer_type_size = sizeof(extra_buffer_t);
+
     int rc = QSEETrustlet::SendCommand(prefix, 0x880, prefix, 0x840);
     if (rc) {
         ALOGE("SendCommand failed with rc = %d", rc);
@@ -49,7 +54,7 @@ int EGISAPTrustlet::SendCommand(Command command) {
  */
 EGISAPTrustlet::API EGISAPTrustlet::GetLockedAPI() {
     auto lockedBuffer = GetLockedBuffer();
-    memset(*lockedBuffer, 0, EGISAPTrustlet::API::MinBufferSize());
+    memset(*lockedBuffer, 0, EGISAPTrustlet::API::BufferSize());
 
     return lockedBuffer;
 }

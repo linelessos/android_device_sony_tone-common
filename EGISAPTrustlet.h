@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "QSEEKeymasterTrustlet.h"
 #include "QSEETrustlet.h"
 
@@ -154,7 +155,7 @@ class EGISAPTrustlet : public QSEETrustlet {
     class API {
         // TODO: Could be a templated class defined in QSEETrustlet.
 
-        static constexpr auto BaseOffset = 0x5c;
+        static constexpr auto RequestOffset = 0x5c;
         static constexpr auto ResponseOffset = 0x14;
 
         QSEETrustlet::LockedIONBuffer mLockedBuffer;
@@ -165,15 +166,15 @@ class EGISAPTrustlet : public QSEETrustlet {
         }
 
         trustlet_buffer_t &GetRequest() {
-            return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + BaseOffset);
+            return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + RequestOffset);
         }
 
         trustlet_buffer_t &GetResponse() {
-            return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + BaseOffset + ResponseOffset);
+            return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + ResponseOffset);
         }
 
-        static constexpr size_t MinBufferSize() {
-            return sizeof(trustlet_buffer_t) + BaseOffset + ResponseOffset;
+        static constexpr size_t BufferSize() {
+            return sizeof(trustlet_buffer_t) + std::max(RequestOffset, ResponseOffset);
         }
 
         friend class EGISAPTrustlet;
