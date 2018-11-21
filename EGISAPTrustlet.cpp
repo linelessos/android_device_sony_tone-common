@@ -191,18 +191,16 @@ int EGISAPTrustlet::SetUserDataPath(const char *path) {
 
 int EGISAPTrustlet::SetAuthToken(const hw_auth_token_t &hat) {
     auto lockedBuffer = GetLockedAPI();
-    auto &extra = lockedBuffer.GetRequest().extra_buffer;
-
-    auto token = reinterpret_cast<ets_authen_token_t *>(extra.data);
 
     // Copy to ets's non-packed structure:
-    token->version = hat.version,
-    token->challenge = hat.challenge,
-    token->user_id = hat.user_id,
-    token->authenticator_id = hat.authenticator_id,
-    token->authenticator_type = hat.authenticator_type,
-    token->timestamp = hat.timestamp,
-    memcpy(token->hmac, hat.hmac, sizeof(token->hmac));
+    auto &token = lockedBuffer.GetExtraRequestDataBuffer<ets_authen_token_t>();
+    token.version = hat.version,
+    token.challenge = hat.challenge,
+    token.user_id = hat.user_id,
+    token.authenticator_id = hat.authenticator_id,
+    token.authenticator_type = hat.authenticator_type,
+    token.timestamp = hat.timestamp,
+    memcpy(token.hmac, hat.hmac, sizeof(token.hmac));
 
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetAuthToken);
 }
@@ -255,12 +253,12 @@ int EGISAPTrustlet::ClearChallenge() {
     return SendExtraCommand(ExtraCommand::ClearChallenge);
 }
 
-int EGISAPTrustlet::SetMasterKey(MasterKey &key) {
+int EGISAPTrustlet::SetMasterKey(const MasterKey &key) {
     auto lockedBuffer = GetLockedAPI();
-    auto &extra = lockedBuffer.GetRequest().extra_buffer;
 
-    extra.data_size = key.size();
-    memcpy(extra.data, key.data(), key.size());
+    auto &mkey = lockedBuffer.GetExtraRequestDataBuffer<typename MasterKey::value_type[QSEE_KEYMASTER64_MASTER_KEY_SIZE]>();
+    static_assert(sizeof(mkey) == std::tuple_size<MasterKey>::value, "");
+    memcpy(&mkey, key.data(), key.size());
 
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetMasterKey);
 }

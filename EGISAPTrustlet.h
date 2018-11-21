@@ -210,6 +210,17 @@ class EGISAPTrustlet : public QSEETrustlet {
             return sizeof(trustlet_buffer_t) + std::max(RequestOffset, ResponseOffset);
         }
 
+        /**
+         * Returns extra_buffer.data as a reference to T, and initializes
+         * the data_size field to sizeof(T).
+         */
+        template <typename T>
+        T &GetExtraRequestDataBuffer() {
+            auto &extra = GetRequest().extra_buffer;
+            extra.data_size = sizeof(T);
+            return *reinterpret_cast<T *>(extra.data);
+        }
+
         friend class EGISAPTrustlet;
     };
 
@@ -245,5 +256,5 @@ class EGISAPTrustlet : public QSEETrustlet {
     uint64_t GetRand64();
     uint64_t GetChallenge();
     int ClearChallenge();
-    int SetMasterKey(MasterKey &);
+    int SetMasterKey(const MasterKey &);
 };
