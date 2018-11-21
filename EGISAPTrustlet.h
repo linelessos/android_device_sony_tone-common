@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <vector>
 #include "QSEEKeymasterTrustlet.h"
 #include "QSEETrustlet.h"
 
@@ -72,6 +73,8 @@ static_assert(offsetof(command_buffer_t, enroll_finger_id) == 0x164, "");
 
 enum class ExtraCommand : uint32_t {
     SetUserDataPath = 0,
+    GetFingerList = 3,
+    RemoveFinger = 0xb,
     GetRand64 = 0xd,
     SetMasterKey = 0x10,
 };
@@ -198,6 +201,8 @@ class EGISAPTrustlet : public QSEETrustlet {
 
     // Extra commands:
     int SetUserDataPath(const char *);
+    int GetFingerList(std::vector<uint32_t> &);
+    int RemoveFinger(uint32_t);
     uint64_t GetRand64();
     int SetMasterKey(MasterKey &);
 };

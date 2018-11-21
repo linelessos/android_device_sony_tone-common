@@ -145,22 +145,45 @@ int EGISAPTrustlet::SetUserDataPath(const char *path) {
     return SendExtraCommand(lockedBuffer);
 }
 
+int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
+    auto lockedBuffer = GetLockedAPI();
+    auto &extraIn = lockedBuffer.GetRequest().extra_buffer;
+    const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
+    extraIn.command = ExtraCommand::GetFingerList;
+    int rc = SendExtraCommand(lockedBuffer);
+    if (!rc) {
+        ALOGD("GetFingerList reported %d fingers", extraOut.number_of_prints);
+        std::copy(extraOut.finger_list, extraOut.finger_list + extraOut.number_of_prints, std::back_inserter(list));
+    }
+    return rc;
+}
+
+int EGISAPTrustlet::RemoveFinger(uint32_t fid) {
+    auto lockedBuffer = GetLockedAPI();
+    auto &extra = lockedBuffer.GetRequest().extra_buffer;
+    extra.command = ExtraCommand::RemoveFinger;
+    extra.remove_fid = fid;
+    return SendExtraCommand(lockedBuffer);
+}
+
 uint64_t EGISAPTrustlet::GetRand64() {
     auto lockedBuffer = GetLockedAPI();
-    lockedBuffer.GetRequest().extra_buffer.command = ExtraCommand::GetRand64;
+    auto &extraIn = lockedBuffer.GetRequest().extra_buffer;
+    const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
+    extraIn.command = ExtraCommand::GetRand64;
     auto rc = SendExtraCommand(lockedBuffer);
     if (rc) {
         // Very unlikely
         ALOGE("%s failed with %d", __func__, rc);
         return -1;
     }
-    auto s = lockedBuffer.GetResponse().extra_buffer.data_size;
+    auto s = extraOut.data_size;
     if (s != sizeof(uint64_t)) {
         // Very unlikely
         ALOGE("%s returned wrong data size of %d", __func__, s);
         return -1;
     }
-    auto rand = *reinterpret_cast<uint64_t *>(lockedBuffer.GetResponse().extra_buffer.data);
+    auto rand = *reinterpret_cast<const uint64_t *>(extraOut.data);
     ALOGD("%s: %#lx", __func__, rand);
     return rand;
 }

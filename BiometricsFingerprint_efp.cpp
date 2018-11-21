@@ -61,13 +61,24 @@ Return<RequestStatus> BiometricsFingerprint_efp::cancel() {
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::enumerate() {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    std::vector<uint32_t> fids;
+    int rc = loops.GetFingerList(fids);
+    if (rc)
+        return RequestStatus::SYS_UNKNOWN;
+    auto remaining = fids.size();
+    ALOGD("Enumerating %zu fingers", remaining);
+    for (auto fid : fids)
+        mClientCallback->onEnumerate(mAuthenticatorId, fid, mGid, --remaining);
+    return RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t fid) {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    ALOGD("%s:", __func__);
+    if (gid != mGid) {
+        ALOGE("Change group and userpath through setActiveGroup first!");
+        return RequestStatus::SYS_EINVAL;
+    }
+    return loops.RemoveFinger(fid) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
