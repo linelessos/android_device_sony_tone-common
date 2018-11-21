@@ -11,7 +11,7 @@ namespace fingerprint {
 namespace V2_1 {
 namespace implementation {
 
-BiometricsFingerprint_efp::BiometricsFingerprint_efp() {
+BiometricsFingerprint_efp::BiometricsFingerprint_efp() : loops(reinterpret_cast<uint64_t>(this)) {
     QSEEKeymasterTrustlet keymaster;
     mMasterKey = keymaster.GetKey();
 
@@ -27,8 +27,7 @@ BiometricsFingerprint_efp::BiometricsFingerprint_efp() {
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
-    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
-    mClientCallback = clientCallback;
+    loops.SetNotify(clientCallback);
     // This is here because HAL 2.1 doesn't have a way to propagate a
     // unique token for its driver. Subsequent versions should send a unique
     // token for each call to setNotify(). This is fine as long as there's only
@@ -61,15 +60,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::cancel() {
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::enumerate() {
-    std::vector<uint32_t> fids;
-    int rc = loops.GetFingerList(fids);
-    if (rc)
-        return RequestStatus::SYS_UNKNOWN;
-    auto remaining = fids.size();
-    ALOGD("Enumerating %zu fingers", remaining);
-    for (auto fid : fids)
-        mClientCallback->onEnumerate(mAuthenticatorId, fid, mGid, --remaining);
-    return RequestStatus::SYS_OK;
+    return loops.Enumerate() ? RequestStatus::SYS_UNKNOWN : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t fid) {
@@ -84,7 +75,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t f
 Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
     ALOGD("%s: gid = %u, path = %s", __func__, gid, storePath.c_str());
     mGid = gid;
-    int rc = loops.SetUserDataPath(storePath.c_str());
+    int rc = loops.SetUserDataPath(mGid, storePath.c_str());
     return rc ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 

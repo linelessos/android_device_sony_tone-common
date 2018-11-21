@@ -14,7 +14,7 @@
 #define LOG_NDEBUG 0
 #include <log/log.h>
 
-EgisOperationLoops::EgisOperationLoops() {
+EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId) {
     event_fd = eventfd((eventfd_t)AsyncState::Idle, EFD_NONBLOCK);
     if (event_fd < 0)
         throw FormatException("Failed to create eventfd: %s", strerror(errno));
@@ -216,11 +216,38 @@ int EgisOperationLoops::RunCancel() {
     rc = ConvertReturnCode(rc);
     if (rc)
         ALOGE("Failed to cancel, rc = %d", rc);
-    else {
-        // TODO:
-        // mClientCallback->onError(FingerprintError::ERROR_CANCELED);
-    }
+    else
+        NotifyError(FingerprintError::ERROR_CANCELED);
     return rc;
+}
+
+void EgisOperationLoops::NotifyError(FingerprintError e) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback)
+        mClientCallback->onError(
+            mDeviceId,
+            std::min(e, FingerprintError::ERROR_VENDOR),
+            e >= FingerprintError::ERROR_VENDOR ? (int32_t)e : 0);
+}
+
+void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback)
+        mClientCallback->onRemoved(
+            mDeviceId,
+            fid,
+            mGid,
+            remaining);
+}
+
+void EgisOperationLoops::SetNotify(const sp<IBiometricsFingerprintClientCallback> callback) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    mClientCallback = callback;
+}
+
+int EgisOperationLoops::SetUserDataPath(uint32_t gid, const char *path) {
+    mGid = gid;
+    return EGISAPTrustlet::SetUserDataPath(path);
 }
 
 int EgisOperationLoops::RemoveFinger(uint32_t fid) {
@@ -232,13 +259,19 @@ int EgisOperationLoops::RemoveFinger(uint32_t fid) {
         rc = GetFingerList(fids);
         if (rc)
             return rc;
+        auto remaining = fids.size();
         for (auto fid : fids) {
             rc = EGISAPTrustlet::RemoveFinger(fid);
             if (rc)
                 break;
+            else
+                NotifyRemove(fid, --remaining);
         }
-    } else
+    } else {
         rc = EGISAPTrustlet::RemoveFinger(fid);
+        if (!rc)
+            NotifyRemove(fid, 0);
+    }
     return rc;
 }
 
@@ -273,4 +306,16 @@ bool EgisOperationLoops::Cancel() {
     ALOGI("Requesting thread to cancel current operation...");
     // Always let the thread handle cancel requests to prevent concurrency issues.
     return MoveToState(AsyncState::Cancel);
+}
+
+int EgisOperationLoops::Enumerate() {
+    std::vector<uint32_t> fids;
+    int rc = GetFingerList(fids);
+    if (rc)
+        return rc;
+    auto remaining = fids.size();
+    ALOGD("Enumerating %zu fingers", remaining);
+    for (auto fid : fids)
+        mClientCallback->onEnumerate(mDeviceId, fid, mGid, --remaining);
+    return 0;
 }

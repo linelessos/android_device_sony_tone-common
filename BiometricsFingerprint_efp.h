@@ -7,7 +7,6 @@
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 
 #include <array>
-#include <mutex>
 #include "EgisOperationLoops.h"
 #include "QSEEKeymasterTrustlet.h"
 
@@ -44,8 +43,6 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
     Return<RequestStatus> authenticate(uint64_t operationId, uint32_t gid) override;
 
    private:
-    std::mutex mClientCallbackMutex;
-    sp<IBiometricsFingerprintClientCallback> mClientCallback;
     MasterKey mMasterKey;
     uint64_t mAuthenticatorId;
     uint32_t mGid;

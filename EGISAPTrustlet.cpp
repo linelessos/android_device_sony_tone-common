@@ -89,7 +89,11 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     log_hex(reinterpret_cast<const char *>(&lockedBuffer.GetResponse()), sizeof(trustlet_buffer_t));
 #endif
 
-    return lockedBuffer.GetResponse().result;
+    // TODO: List expected response codes in an enum.
+    rc = lockedBuffer.GetResponse().result;
+    if (rc)
+        ALOGE("SendCommand result = %d", rc);
+    return rc;
 }
 
 int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &buffer, Command command) {
@@ -108,12 +112,40 @@ int EGISAPTrustlet::SendCommand(Command command) {
 EGISAPTrustlet::API EGISAPTrustlet::GetLockedAPI() {
     auto lockedBuffer = GetLockedBuffer();
     memset(*lockedBuffer, 0, EGISAPTrustlet::API::BufferSize());
-
     return lockedBuffer;
 }
 
 int EGISAPTrustlet::SendExtraCommand(EGISAPTrustlet::API &buffer) {
     return SendCommand(buffer, Command::ExtraCommand);
+}
+
+int EGISAPTrustlet::SendExtraCommand(EGISAPTrustlet::API &buffer, ExtraCommand command) {
+    buffer.GetRequest().extra_buffer.command = command;
+    return SendExtraCommand(buffer);
+}
+
+int EGISAPTrustlet::SendExtraCommand(ExtraCommand command) {
+    auto buffer = GetLockedAPI();
+    return SendExtraCommand(buffer, command);
+}
+
+uint64_t EGISAPTrustlet::CallFor64BitResponse(ExtraCommand command) {
+    auto lockedBuffer = GetLockedAPI();
+    const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
+    auto rc = SendExtraCommand(lockedBuffer, command);
+    if (rc) {
+        // Very unlikely
+        ALOGE("%s failed with %d", __func__, rc);
+        return -1;
+    }
+    if (extraOut.data_size != sizeof(uint64_t)) {
+        // Very unlikely
+        ALOGE("%s returned wrong data size of %d", __func__, extraOut.data_size);
+        return -1;
+    }
+    auto rand = *reinterpret_cast<const uint64_t *>(extraOut.data);
+    ALOGD("%s: %#lx", __func__, rand);
+    return rand;
 }
 
 int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &api) {
@@ -131,7 +163,6 @@ int EGISAPTrustlet::SendDataInit() {
 int EGISAPTrustlet::SetUserDataPath(const char *path) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
-    extra.command = ExtraCommand::SetUserDataPath;
 
     const auto len = strlen(path);
     if (len >= sizeof(extra.string_field) - 1) {
@@ -142,60 +173,40 @@ int EGISAPTrustlet::SetUserDataPath(const char *path) {
     // Copy terminating null-character:
     memcpy(extra.string_field, path, len + 1);
 
-    return SendExtraCommand(lockedBuffer);
+    return SendExtraCommand(lockedBuffer, ExtraCommand::SetUserDataPath);
 }
 
 int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
     auto lockedBuffer = GetLockedAPI();
     auto &extraIn = lockedBuffer.GetRequest().extra_buffer;
     const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
-    extraIn.command = ExtraCommand::GetFingerList;
-    int rc = SendExtraCommand(lockedBuffer);
-    if (!rc) {
-        ALOGD("GetFingerList reported %d fingers", extraOut.number_of_prints);
-        std::copy(extraOut.finger_list, extraOut.finger_list + extraOut.number_of_prints, std::back_inserter(list));
-    }
-    return rc;
+    int rc = SendExtraCommand(lockedBuffer, ExtraCommand::GetFingerList);
+    if (rc)
+        return rc;
+    list.clear();
+    list.resize(extraIn.number_of_prints);
+    ALOGD("GetFingerList reported %d fingers", extraOut.number_of_prints);
+    std::copy(extraOut.finger_list, extraOut.finger_list + extraOut.number_of_prints, std::back_inserter(list));
+    return 0;
 }
 
 int EGISAPTrustlet::RemoveFinger(uint32_t fid) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
-    extra.command = ExtraCommand::RemoveFinger;
     extra.remove_fid = fid;
-    return SendExtraCommand(lockedBuffer);
+    return SendExtraCommand(lockedBuffer, ExtraCommand::RemoveFinger);
 }
 
 uint64_t EGISAPTrustlet::GetRand64() {
-    auto lockedBuffer = GetLockedAPI();
-    auto &extraIn = lockedBuffer.GetRequest().extra_buffer;
-    const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
-    extraIn.command = ExtraCommand::GetRand64;
-    auto rc = SendExtraCommand(lockedBuffer);
-    if (rc) {
-        // Very unlikely
-        ALOGE("%s failed with %d", __func__, rc);
-        return -1;
-    }
-    auto s = extraOut.data_size;
-    if (s != sizeof(uint64_t)) {
-        // Very unlikely
-        ALOGE("%s returned wrong data size of %d", __func__, s);
-        return -1;
-    }
-    auto rand = *reinterpret_cast<const uint64_t *>(extraOut.data);
-    ALOGD("%s: %#lx", __func__, rand);
-    return rand;
+    return CallFor64BitResponse(ExtraCommand::GetRand64);
 }
 
 int EGISAPTrustlet::SetMasterKey(MasterKey &key) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
 
-    extra.command = ExtraCommand::SetMasterKey;
     extra.data_size = key.size();
-
     memcpy(extra.data, key.data(), key.size());
 
-    return SendExtraCommand(lockedBuffer);
+    return SendExtraCommand(lockedBuffer, ExtraCommand::SetMasterKey);
 }

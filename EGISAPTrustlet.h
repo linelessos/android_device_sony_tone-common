@@ -193,6 +193,11 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendCommand(Command);
     API GetLockedAPI();
     int SendExtraCommand(API &);
+    int SendExtraCommand(API &, ExtraCommand);
+    int SendExtraCommand(ExtraCommand);
+
+    // Helper calls:
+    uint64_t CallFor64BitResponse(ExtraCommand);
 
     // Normal commands:
     int SendPrepare(API &);

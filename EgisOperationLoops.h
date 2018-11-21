@@ -1,8 +1,15 @@
 #pragma once
 
+#include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprintClientCallback.h>
 #include <sys/eventfd.h>
+#include <mutex>
 #include "EGISAPTrustlet.h"
 #include "EgisFpDevice.h"
+
+using ::android::sp;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintError;
+using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprintClientCallback;
 
 /**
  * External wrapper class containing TZ communication logic
@@ -22,6 +29,11 @@ class EgisOperationLoops : public EGISAPTrustlet {
         Finger,  // Hardware
     };
 
+    const uint64_t mDeviceId;
+    uint32_t mGid;
+    sp<IBiometricsFingerprintClientCallback> mClientCallback;
+    std::mutex mClientCallbackMutex;
+
     AsyncState currentState = AsyncState::Idle;
     int epoll_fd;
     int event_fd;
@@ -29,7 +41,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     pthread_t thread;
 
    public:
-    EgisOperationLoops();
+    EgisOperationLoops(uint64_t deviceId);
 
    private:
     static void *ThreadStart(void *);
@@ -51,8 +63,15 @@ class EgisOperationLoops : public EGISAPTrustlet {
      */
     int RunCancel();
 
+    // Notify functions:
+    void NotifyError(FingerprintError);
+    void NotifyRemove(uint32_t fid, uint32_t remaining);
+
    public:
+    void SetNotify(const sp<IBiometricsFingerprintClientCallback>);
+    int SetUserDataPath(uint32_t gid, const char *path);
     int RemoveFinger(uint32_t fid);
     int Prepare();
     bool Cancel();
+    int Enumerate();
 };
