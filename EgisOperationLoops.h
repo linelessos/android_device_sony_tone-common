@@ -13,6 +13,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     int ConvertReturnCode(int);
 
    public:
+    int RemoveFinger(uint32_t fid);
     int Prepare();
     int Cancel();
 };

@@ -48,6 +48,25 @@ int EgisOperationLoops::ConvertReturnCode(int rc) {
     return -1;
 }
 
+int EgisOperationLoops::RemoveFinger(uint32_t fid) {
+    int rc = 0;
+
+    if (fid == 0) {
+        // Delete all fingerprints when fid is zero:
+        std::vector<uint32_t> fids;
+        rc = GetFingerList(fids);
+        if (rc)
+            return rc;
+        for (auto fid : fids) {
+            rc = EGISAPTrustlet::RemoveFinger(fid);
+            if (rc)
+                break;
+        }
+    } else
+        rc = EGISAPTrustlet::RemoveFinger(fid);
+    return rc;
+}
+
 int EgisOperationLoops::Prepare() {
     auto lockedBuffer = GetLockedAPI();
     auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
