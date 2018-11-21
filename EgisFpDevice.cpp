@@ -50,3 +50,7 @@ bool EgisFpDevice::WaitInterrupt(int timeout) {
         throw FormatException("Poll error");
     return rc && pfd.revents & POLLIN;
 }
+
+int EgisFpDevice::GetDescriptor() const {
+    return mFd;
+}

@@ -56,8 +56,8 @@ Return<uint64_t> BiometricsFingerprint_efp::getAuthenticatorId() {
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::cancel() {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    bool success = loops.Cancel();
+    return success ? RequestStatus::SYS_OK : RequestStatus::SYS_UNKNOWN;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::enumerate() {

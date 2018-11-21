@@ -17,4 +17,5 @@ class EgisFpDevice {
     int EnableInterrupt();
     int DisableInterrupt();
     bool WaitInterrupt(int timeout = -1);
+    int GetDescriptor() const;
 };
