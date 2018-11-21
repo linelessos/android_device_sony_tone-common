@@ -48,6 +48,12 @@ class EgisOperationLoops : public EGISAPTrustlet {
     void RunThread();
     void ProcessOpcode(const command_buffer_t &);
     int ConvertReturnCode(int);
+    /**
+     * Convert error code from the device.
+     * Some return codes indicate a special state which do not imply an error has occured.
+     * @return True when an error occured.
+     */
+    bool ConvertAndCheckError(int &);
     WakeupReason WaitForEvent(int timeoutSec = -1);
     bool MoveToState(AsyncState);
     AsyncState ReadState();
@@ -63,9 +69,18 @@ class EgisOperationLoops : public EGISAPTrustlet {
      */
     int RunCancel();
 
+    // Temporaries for asynchronous operation:
+    uint64_t mSecureUserId;
+
     // Notify functions:
     void NotifyError(FingerprintError);
     void NotifyRemove(uint32_t fid, uint32_t remaining);
+    void NotifyAcquired(FingerprintAcquiredInfo);
+    void NotifyEnrollResult(uint32_t fid, uint32_t remaining);
+    void NotifyBadImage(int);
+
+    // These should run asynchronously from HAL calls:
+    void EnrollAsync();
 
    public:
     void SetNotify(const sp<IBiometricsFingerprintClientCallback>);
@@ -74,4 +89,5 @@ class EgisOperationLoops : public EGISAPTrustlet {
     int Prepare();
     bool Cancel();
     int Enumerate();
+    int Enroll(const hw_auth_token_t &, uint32_t timeoutSec);
 };

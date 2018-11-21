@@ -1,5 +1,7 @@
 #pragma once
 
+#include <arpa/inet.h>
+#include <hardware/hw_auth_token.h>
 #include <algorithm>
 #include <vector>
 #include "QSEEKeymasterTrustlet.h"
@@ -22,6 +24,8 @@ enum class Step : uint32_t {
     Done = 0,
     Init = 1,
     WaitFingerprint = 4,
+    FingerDetected = 5,
+    FingerAcquired = 6,
     NotReady = 7,
     Error = 8,  // Indication for a reset
     Cancel = 0x19,
@@ -73,9 +77,14 @@ static_assert(offsetof(command_buffer_t, enroll_finger_id) == 0x164, "");
 
 enum class ExtraCommand : uint32_t {
     SetUserDataPath = 0,
+    SetAuthToken = 1,
+    /*SetAnd?*/ CheckAuthToken = 2,
     GetFingerList = 3,
+    SetSecureUserId = 0xa,
     RemoveFinger = 0xb,
     GetRand64 = 0xd,
+    GetChallenge = 0xe,
+    ClearChallenge = 0xf,
     SetMasterKey = 0x10,
 };
 
@@ -111,6 +120,9 @@ static_assert(offsetof(extra_buffer_t, data_size) == 0x328, "");
 enum class Command : uint32_t {
     Prepare = 0,
     Cleanup = 1,
+    InitEnroll = 2,
+    Enroll = 3,
+    FinalizeEnroll = 4,
     Cancel = 8,
     ExtraCommand = 0xa,
     DataInit = 0x10,
@@ -155,6 +167,22 @@ static_assert(sizeof(trustlet_buffer_t) == 0x4f8, "trustlet_buffer_t not of expe
 static_assert(offsetof(trustlet_buffer_t, command_buffer_size) == 0x18, "");
 static_assert(offsetof(trustlet_buffer_t, extra_buffer_type_size) == 0x24, "");
 static_assert(offsetof(trustlet_buffer_t, secure_user_id) == 0x4e8, "");
+
+// TODO: Move to another file?
+// Non-packed version of hw_auth_token_t, used in communication to TZ.
+typedef struct {
+    uint8_t version;
+    // Implicit 7-byte padding
+    uint64_t challenge;
+    uint64_t user_id;
+    uint64_t authenticator_id;
+    uint32_t authenticator_type;
+    // Implicit 4-byte padding
+    uint64_t timestamp;
+    uint8_t hmac[0x20];
+} ets_authen_token_t;
+static_assert(offsetof(ets_authen_token_t, challenge) == 0x8, "");
+static_assert(offsetof(ets_authen_token_t, timestamp) == 0x28, "");
 
 class EGISAPTrustlet : public QSEETrustlet {
     class API {
@@ -203,11 +231,19 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendPrepare(API &);
     int SendCancel(API &);
     int SendDataInit();
+    int SendInitEnroll(API &, uint64_t);
+    int SendEnroll(API &);
+    int SendFinalizeEnroll(API &);
 
     // Extra commands:
     int SetUserDataPath(const char *);
+    int SetAuthToken(const hw_auth_token_t &token);
+    int CheckAuthToken(API &);
     int GetFingerList(std::vector<uint32_t> &);
+    int SetSecureUserId(API &, uint64_t);
     int RemoveFinger(uint32_t);
     uint64_t GetRand64();
+    uint64_t GetChallenge();
+    int ClearChallenge();
     int SetMasterKey(MasterKey &);
 };

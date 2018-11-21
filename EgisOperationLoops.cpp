@@ -7,6 +7,7 @@
 #include <sys/epoll.h>
 #include <sys/poll.h>
 #include <unistd.h>
+#include <algorithm>
 #include "EgisOperationLoops.h"
 #include "FormatException.hpp"
 
@@ -71,14 +72,18 @@ void EgisOperationLoops::RunThread() {
         currentState = nextState;
         switch (nextState) {
             case AsyncState::Idle:
-            case AsyncState::Cancel:
                 ALOGW("Unexpected AsyncState %lu", nextState);
+                break;
+            case AsyncState::Cancel:
+                // Nothing in progress - still notify that the current operation was cancelled.
+                ALOGW("Unexpected AsyncState::Cancel - nothing in progress");
+                NotifyError(FingerprintError::ERROR_CANCELED);
                 break;
             case AsyncState::Authenticating:
                 // TODO
                 break;
             case AsyncState::Enrolling:
-                // TODO
+                EnrollAsync();
                 break;
         }
         currentState = AsyncState::Idle;
@@ -128,6 +133,16 @@ int EgisOperationLoops::ConvertReturnCode(int rc) {
     }
     ALOGE("Invalid return code %#x", rc);
     return -1;
+}
+
+bool EgisOperationLoops::ConvertAndCheckError(int &rc) {
+    if ((rc - 0x27 & ~2) == 0 || (rc & ~0x20 /* 0xffffffdf*/) == 0)
+        return false;
+
+    rc = ConvertReturnCode(rc);
+    ALOGW("DOUBLE MUTEX LOCK!");
+    Cancel();
+    return true;
 }
 
 EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec) {
@@ -240,6 +255,130 @@ void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
             remaining);
 }
 
+void EgisOperationLoops::NotifyAcquired(FingerprintAcquiredInfo acquiredInfo) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback)
+        mClientCallback->onAcquired(mDeviceId,
+                                    std::min(acquiredInfo, FingerprintAcquiredInfo::ACQUIRED_VENDOR),
+                                    acquiredInfo >= FingerprintAcquiredInfo::ACQUIRED_VENDOR ? (int32_t)acquiredInfo : 0);
+}
+
+void EgisOperationLoops::NotifyEnrollResult(uint32_t fid, uint32_t remaining) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback)
+        mClientCallback->onEnrollResult(mDeviceId, fid, mGid, remaining);
+}
+
+void EgisOperationLoops::NotifyBadImage(int reason) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    FingerprintAcquiredInfo acquiredInfo;
+    if (reason & 1 << 1)  // 0x80000002
+        acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_TOO_FAST;
+    else if (reason & 1 << 0x1b)  // 0x88000000
+        acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_PARTIAL;
+    else if (reason & (1 << 3 | 1 << 7))
+        // NOTE: 1 << 3 caused by "redundant image"
+        // WARNING: Probably different meaning! (first free vendor code)
+        acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_VENDOR;
+    else if (reason & 1 << 0x18)  // 0x81000000
+        acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_IMAGER_DIRTY;
+    else  // 0x80000000 usually
+        acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_INSUFFICIENT;
+
+    NotifyAcquired(acquiredInfo);
+}
+
+// TODO: Check restart cases
+void EgisOperationLoops::EnrollAsync() {
+    int rc = 0;
+    auto lockedBuffer = GetLockedAPI();
+    auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
+    auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
+
+    // Intial step is 0, already cleared from GetLockedAPI
+
+    // TODO: check_return_code_error, which does some weird
+    // and-ops. On false, converts the return code and calls cancel()
+
+    for (;;) {
+        // TODO: Handle cancellation _inside_ all loops!
+
+        do {
+            rc = SendInitEnroll(lockedBuffer, mSecureUserId);
+            ALOGD("Enroll: init step, rc = %d, next step = %d", rc, cmdOut.step);
+            // TODO: Check return code, recalibrate on convert()==-6
+
+            if (ConvertAndCheckError(rc))
+                return NotifyError((FingerprintError)rc);
+
+            ProcessOpcode(cmdOut);
+            cmdIn.step = cmdOut.step;
+        } while (cmdOut.step != Step::Done);
+
+        do {
+            rc = SendEnroll(lockedBuffer);
+            ALOGD("Enroll: step, rc = %d, next step = %d", rc, cmdOut.step);
+            // TODO: if convert(rc) == -9, restart from init_enroll
+
+            if (ConvertAndCheckError(rc))
+                return NotifyError((FingerprintError)rc);
+
+            if (rc == 0x29) {
+                ALOGD("Enroll: \"finished\" rc = %d", rc);
+                // TODO: Original code does not notify error here!
+                return NotifyError((FingerprintError)rc);
+            } else if (rc == 0x27) {
+                ALOGD("Enroll: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
+                NotifyBadImage(cmdOut.bad_image_reason);
+            }
+
+            else if (!rc)
+                // TODO: best-guess. Things such as NotifyBadImage were originally called twice, also on FingerAcquired.
+                // cmd.step is usually 0 in case rc!=0
+                switch (cmdOut.step) {
+                    // TODO: Very similar to processopcode
+                    case Step::FingerDetected:
+                        // Nothing.
+                        break;
+                    case Step::FingerAcquired:
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_GOOD);
+                        break;
+                    default:
+                        // NOTE: Most cases were handled as duplicates here.
+                        ProcessOpcode(cmdOut);
+                        break;
+                }
+
+            cmdIn.step = cmdOut.step;
+        } while (cmdOut.step != Step::Done);
+
+        if (cmdOut.enroll_status == 0x64) {
+            ALOGI("Enroll: complete in %d steps", cmdOut.enroll_steps_done);
+            // It's possible for enrollment to finish before the predicated amount of steps.
+            // In that case, make sure cmd.enroll_steps_required - cmd.enroll_steps_done == 0:
+            cmdOut.enroll_steps_done = cmdOut.enroll_steps_required;
+        } else
+            ALOGI("Enroll: %d steps remaining", cmdOut.enroll_steps_required - cmdOut.enroll_steps_done);
+
+        // Notify that an enrollment step was done:
+        if (!rc)
+            NotifyEnrollResult(cmdOut.enroll_finger_id, cmdOut.enroll_steps_required - cmdOut.enroll_steps_done);
+
+        do {
+            rc = SendFinalizeEnroll(lockedBuffer);
+            ALOGD("Enroll: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
+
+            if (ConvertAndCheckError(rc))
+                return NotifyError((FingerprintError)rc);
+
+            ProcessOpcode(cmdOut);
+            cmdIn.step = cmdOut.step;
+        } while (cmdOut.step != Step::Done);
+
+        // TODO: Update authenticatorId!!
+    }
+}
+
 void EgisOperationLoops::SetNotify(const sp<IBiometricsFingerprintClientCallback> callback) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     mClientCallback = callback;
@@ -309,6 +448,7 @@ bool EgisOperationLoops::Cancel() {
 }
 
 int EgisOperationLoops::Enumerate() {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     std::vector<uint32_t> fids;
     int rc = GetFingerList(fids);
     if (rc)
@@ -318,4 +458,36 @@ int EgisOperationLoops::Enumerate() {
     for (auto fid : fids)
         mClientCallback->onEnumerate(mDeviceId, fid, mGid, --remaining);
     return 0;
+}
+
+int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) {
+    int rc = SetAuthToken(hat);
+    if (rc) {
+        ALOGE("Failed to set auth token, rc = %d", rc);
+        goto error;
+    }
+
+    {
+        auto api = GetLockedAPI();
+
+        rc = SetSecureUserId(api, hat.user_id);
+        if (rc) {
+            ALOGE("Failed to set secure user id, rc = %d", rc);
+            goto error;
+        }
+        mSecureUserId = hat.user_id;
+
+        rc = CheckAuthToken(api);
+        if (rc) {
+            ALOGE("Authtoken check failed, rc = %d", rc);
+            goto error;
+        }
+
+        if (MoveToState(AsyncState::Enrolling))
+            return 0;
+    }
+
+error:
+    NotifyError(FingerprintError::ERROR_HW_UNAVAILABLE);
+    return rc;
 }

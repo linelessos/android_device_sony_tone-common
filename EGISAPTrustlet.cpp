@@ -160,6 +160,19 @@ int EGISAPTrustlet::SendDataInit() {
     return SendCommand(Command::DataInit);
 }
 
+int EGISAPTrustlet::SendInitEnroll(EGISAPTrustlet::API &api, uint64_t secureUserId) {
+    api.GetRequest().secure_user_id = secureUserId;
+    return SendCommand(api, Command::InitEnroll);
+}
+
+int EGISAPTrustlet::SendEnroll(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::Enroll);
+}
+
+int EGISAPTrustlet::SendFinalizeEnroll(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::FinalizeEnroll);
+}
+
 int EGISAPTrustlet::SetUserDataPath(const char *path) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
@@ -176,6 +189,31 @@ int EGISAPTrustlet::SetUserDataPath(const char *path) {
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetUserDataPath);
 }
 
+int EGISAPTrustlet::SetAuthToken(const hw_auth_token_t &hat) {
+    auto lockedBuffer = GetLockedAPI();
+    auto &extra = lockedBuffer.GetRequest().extra_buffer;
+
+    auto token = reinterpret_cast<ets_authen_token_t *>(extra.data);
+
+    // Copy to ets's non-packed structure:
+    token->version = hat.version,
+    token->challenge = hat.challenge,
+    token->user_id = hat.user_id,
+    token->authenticator_id = hat.authenticator_id,
+    token->authenticator_type = hat.authenticator_type,
+    token->timestamp = hat.timestamp,
+    memcpy(token->hmac, hat.hmac, sizeof(token->hmac));
+
+    return SendExtraCommand(lockedBuffer, ExtraCommand::SetAuthToken);
+}
+
+int EGISAPTrustlet::CheckAuthToken(EGISAPTrustlet::API &api) {
+    // TODO: Buffer only passed because it's kept open. No need probably,
+    // since input data is overwritten anyway.
+    // Same for setsecureuserid.
+    return SendExtraCommand(api, ExtraCommand::CheckAuthToken);
+}
+
 int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
     auto lockedBuffer = GetLockedAPI();
     auto &extraIn = lockedBuffer.GetRequest().extra_buffer;
@@ -190,6 +228,14 @@ int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
     return 0;
 }
 
+int EGISAPTrustlet::SetSecureUserId(EGISAPTrustlet::API &api, uint64_t secureUserId) {
+    // TODO: Should the buffer be passed around?
+    // It's cleared once, then reused for all enroll commands.
+    // What even does this call do? Prepare the bufer??
+    api.GetRequest().extra_buffer.secure_user_id = secureUserId;
+    return SendExtraCommand(api, ExtraCommand::SetSecureUserId);
+}
+
 int EGISAPTrustlet::RemoveFinger(uint32_t fid) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
@@ -199,6 +245,14 @@ int EGISAPTrustlet::RemoveFinger(uint32_t fid) {
 
 uint64_t EGISAPTrustlet::GetRand64() {
     return CallFor64BitResponse(ExtraCommand::GetRand64);
+}
+
+uint64_t EGISAPTrustlet::GetChallenge() {
+    return CallFor64BitResponse(ExtraCommand::GetChallenge);
+}
+
+int EGISAPTrustlet::ClearChallenge() {
+    return SendExtraCommand(ExtraCommand::ClearChallenge);
 }
 
 int EGISAPTrustlet::SetMasterKey(MasterKey &key) {

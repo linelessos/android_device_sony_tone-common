@@ -36,18 +36,30 @@ Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFinger
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::preEnroll() {
-    ALOGE("%s not implemented!", __func__);
-    return -1;
+    // TODO: Original service aborts+retries on failure.
+    return loops.GetChallenge();
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::enroll(const hidl_array<uint8_t, 69> &hat, uint32_t gid, uint32_t timeoutSec) {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    if (gid != mGid) {
+        ALOGE("Cannot enroll finger for different gid! Caller needs to update storePath first with setActiveGroup()!");
+        return RequestStatus::SYS_EINVAL;
+    }
+
+    const auto h = reinterpret_cast<const hw_auth_token_t *>(hat.data());
+    if (!h) {
+        // This seems to happen when locking the device while enrolling.
+        // It is unknown why this function is called again.
+        ALOGE("%s: authentication token is unset!", __func__);
+        return RequestStatus::SYS_EINVAL;
+    }
+
+    return loops.Enroll(*h, timeoutSec) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::postEnroll() {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    // TODO: Original service aborts+retries on failure.
+    return loops.ClearChallenge() ? RequestStatus::SYS_UNKNOWN : RequestStatus::SYS_OK;
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::getAuthenticatorId() {
