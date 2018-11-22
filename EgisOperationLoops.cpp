@@ -146,9 +146,11 @@ bool EgisOperationLoops::ConvertAndCheckError(int &rc) {
 }
 
 EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec) {
+    dev.EnableInterrupt();
     constexpr auto EVENT_COUNT = 2;
     struct epoll_event events[EVENT_COUNT];
     int cnt = epoll_wait(epoll_fd, events, EVENT_COUNT, 1000 * timeoutSec);
+    dev.DisableInterrupt();
 
     if (cnt < 0) {
         ALOGE("epoll_wait failed: %s", strerror(errno));
@@ -162,17 +164,22 @@ EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec
     // Control events have priority over finger events, since
     // this is probably a request to cancel the current operation.
     for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == event_fd && events[ei].events | EPOLLIN)
+        if (events[ei].data.fd == event_fd && events[ei].events | EPOLLIN) {
+            ALOGV("Waking up due to event");
             return WakeupReason::Event;
+        }
 
     for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == dev.GetDescriptor() && events[ei].events | EPOLLIN)
+        if (events[ei].data.fd == dev.GetDescriptor() && events[ei].events | EPOLLIN) {
+            ALOGV("Waking up due to finger");
             return WakeupReason::Finger;
+        }
 
     throw FormatException("Invalid fd source!");
 }
 
 bool EgisOperationLoops::MoveToState(AsyncState nextState) {
+    ALOGD("Attempting to move to state %lu", nextState);
     // TODO: This is racy (eg. does not look at in-flight state),
     // but it does not matter because async operations are not supposed to be
     // invoked concurrently (how can a device run any combination of authenticate or
@@ -198,7 +205,8 @@ EgisOperationLoops::AsyncState EgisOperationLoops::ReadState() {
     eventfd_t requestedState;
     int rc = eventfd_read(event_fd, &requestedState);
     if (rc) {
-        ALOGE("Failed to read next state from eventfd: %s", strerror(errno));
+        // This is very common when no state is available (read returns 0 bytes when the state is 0).
+        // ALOGE("Failed to read next state from eventfd: %s", strerror(errno));
         return AsyncState::Idle;
     }
     return static_cast<AsyncState>(requestedState);
@@ -212,12 +220,14 @@ bool EgisOperationLoops::IsCancelled() {
         ALOGW("%s: Ignoring requested state %lu", __func__, requestedState);
 
     auto cancelled = requestedState & static_cast<eventfd_t>(AsyncState::Cancel);
+    ALOGV("%s: %lu", __func__, cancelled);
     if (cancelled)
         RunCancel();
     return cancelled;
 }
 
 int EgisOperationLoops::RunCancel() {
+    ALOGD("Sending cancel command to TZ");
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
@@ -300,10 +310,10 @@ void EgisOperationLoops::EnrollAsync() {
     // TODO: check_return_code_error, which does some weird
     // and-ops. On false, converts the return code and calls cancel()
 
-    for (;;) {
-        // TODO: Handle cancellation _inside_ all loops!
-
+    for (bool finished = false; !finished;) {
         do {
+            if (IsCancelled())
+                return;
             rc = SendInitEnroll(lockedBuffer, mSecureUserId);
             ALOGD("Enroll: init step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: Check return code, recalibrate on convert()==-6
@@ -316,6 +326,8 @@ void EgisOperationLoops::EnrollAsync() {
         } while (cmdOut.step != Step::Done);
 
         do {
+            if (IsCancelled())
+                return;
             rc = SendEnroll(lockedBuffer);
             ALOGD("Enroll: step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: if convert(rc) == -9, restart from init_enroll
@@ -336,7 +348,28 @@ void EgisOperationLoops::EnrollAsync() {
                 // TODO: best-guess. Things such as NotifyBadImage were originally called twice, also on FingerAcquired.
                 // cmd.step is usually 0 in case rc!=0
                 switch (cmdOut.step) {
-                    // TODO: Very similar to processopcode
+                    case Step::WaitFingerprint: {
+                        auto reason = WaitForEvent();
+                        ALOGD("Enroll: wakeup %d", reason);
+                        switch (reason) {
+                            case WakeupReason::Timeout:
+                                NotifyError(FingerprintError::ERROR_TIMEOUT);
+                                // Assuming this is some magic state that causes the TZ to clean up,
+                                // followed by an exit (assuming the rc == 0x29).
+                                // TODO: That can be tested with an explicit timeout!
+                                cmdOut.step = Step::ContinueAfterTimeout;
+                                break;
+                            case WakeupReason::Event:
+                                if (IsCancelled())
+                                    return;
+                                break;
+                            case WakeupReason::Finger:
+                                ALOGV("Enroll: Finger encountered");
+                                // Continue processing
+                                break;
+                        }
+                        break;
+                    }
                     case Step::FingerDetected:
                         // Nothing.
                         break;
@@ -357,6 +390,7 @@ void EgisOperationLoops::EnrollAsync() {
             // It's possible for enrollment to finish before the predicated amount of steps.
             // In that case, make sure cmd.enroll_steps_required - cmd.enroll_steps_done == 0:
             cmdOut.enroll_steps_done = cmdOut.enroll_steps_required;
+            finished = true;
         } else
             ALOGI("Enroll: %d steps remaining", cmdOut.enroll_steps_required - cmdOut.enroll_steps_done);
 
@@ -365,6 +399,8 @@ void EgisOperationLoops::EnrollAsync() {
             NotifyEnrollResult(cmdOut.enroll_finger_id, cmdOut.enroll_steps_required - cmdOut.enroll_steps_done);
 
         do {
+            if (IsCancelled())
+                return;
             rc = SendFinalizeEnroll(lockedBuffer);
             ALOGD("Enroll: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
 
@@ -374,6 +410,8 @@ void EgisOperationLoops::EnrollAsync() {
             ProcessOpcode(cmdOut);
             cmdIn.step = cmdOut.step;
         } while (cmdOut.step != Step::Done);
+
+        ALOGD("Enroll: Finished single step; done? %d", finished);
 
         // TODO: Update authenticatorId!!
     }

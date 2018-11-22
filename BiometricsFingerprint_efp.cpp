@@ -37,7 +37,9 @@ Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFinger
 
 Return<uint64_t> BiometricsFingerprint_efp::preEnroll() {
     // TODO: Original service aborts+retries on failure.
-    return loops.GetChallenge();
+    auto challenge = loops.GetChallenge();
+    ALOGI("%s: Generated enroll challenge %lu", __func__, challenge);
+    return challenge;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::enroll(const hidl_array<uint8_t, 69> &hat, uint32_t gid, uint32_t timeoutSec) {
@@ -54,10 +56,12 @@ Return<RequestStatus> BiometricsFingerprint_efp::enroll(const hidl_array<uint8_t
         return RequestStatus::SYS_EINVAL;
     }
 
+    ALOGI("Starting enroll for challenge %lu", h->challenge);
     return loops.Enroll(*h, timeoutSec) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::postEnroll() {
+    ALOGI("%s: clearing challenge", __func__);
     // TODO: Original service aborts+retries on failure.
     return loops.ClearChallenge() ? RequestStatus::SYS_UNKNOWN : RequestStatus::SYS_OK;
 }
@@ -67,6 +71,7 @@ Return<uint64_t> BiometricsFingerprint_efp::getAuthenticatorId() {
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::cancel() {
+    ALOGI("Cancel requested");
     bool success = loops.Cancel();
     return success ? RequestStatus::SYS_OK : RequestStatus::SYS_UNKNOWN;
 }
@@ -76,7 +81,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::enumerate() {
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t fid) {
-    ALOGD("%s:", __func__);
+    ALOGI("%s: gid = %d, fid = %d", __func__, gid, fid);
     if (gid != mGid) {
         ALOGE("Change group and userpath through setActiveGroup first!");
         return RequestStatus::SYS_EINVAL;
@@ -85,7 +90,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::remove(uint32_t gid, uint32_t f
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
-    ALOGD("%s: gid = %u, path = %s", __func__, gid, storePath.c_str());
+    ALOGI("%s: gid = %u, path = %s", __func__, gid, storePath.c_str());
     mGid = gid;
     int rc = loops.SetUserDataPath(mGid, storePath.c_str());
     return rc ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
@@ -93,7 +98,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, co
 
 Return<RequestStatus> BiometricsFingerprint_efp::authenticate(uint64_t operationId, uint32_t gid) {
     ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_UNKNOWN;
+    return RequestStatus::SYS_OK;
 }
 
 }  // namespace implementation

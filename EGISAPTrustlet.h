@@ -29,6 +29,7 @@ enum class Step : uint32_t {
     NotReady = 7,
     Error = 8,  // Indication for a reset
     Cancel = 0x19,
+    ContinueAfterTimeout = 0x25,
 };
 
 /**
