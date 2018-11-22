@@ -455,8 +455,13 @@ int EgisOperationLoops::Enumerate() {
         return rc;
     auto remaining = fids.size();
     ALOGD("Enumerating %zu fingers", remaining);
-    for (auto fid : fids)
-        mClientCallback->onEnumerate(mDeviceId, fid, mGid, --remaining);
+    if (!remaining)
+        // If no fingerprints exist, notify that the enumeration is done with remaining=0.
+        // Use fid=0 to indicate that this is not a fingerprint.
+        mClientCallback->onEnumerate(mDeviceId, 0, mGid, 0);
+    else
+        for (auto fid : fids)
+            mClientCallback->onEnumerate(mDeviceId, fid, mGid, --remaining);
     return 0;
 }
 
