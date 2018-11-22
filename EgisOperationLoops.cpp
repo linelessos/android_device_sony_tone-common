@@ -277,7 +277,6 @@ void EgisOperationLoops::NotifyEnrollResult(uint32_t fid, uint32_t remaining) {
 }
 
 void EgisOperationLoops::NotifyBadImage(int reason) {
-    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     FingerprintAcquiredInfo acquiredInfo;
     if (reason & 1 << 1)  // 0x80000002
         acquiredInfo = FingerprintAcquiredInfo::ACQUIRED_TOO_FAST;
@@ -299,8 +298,12 @@ void EgisOperationLoops::NotifyBadImage(int reason) {
 void EgisOperationLoops::EnrollAsync() {
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
-    auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
     auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
+
+    // NOTE: Due to bad API design, this section is more error-prone than necessary.
+    // Responses are placed at a 14-byte offset with regards to the request, but
+    // are expected to be moved back in consecutive calls in this loop. Thus cmdOut
+    // may or may not point to the right data, depending on the point at which it is evaluated.
 
     // Intial step is 0, already cleared from GetLockedAPI
 
@@ -311,6 +314,8 @@ void EgisOperationLoops::EnrollAsync() {
         do {
             if (CheckAndHandleCancel(lockedBuffer))
                 return;
+            // First call has no effect, since all data is still zero.
+            lockedBuffer.MoveResponseToRequest();
             rc = SendInitEnroll(lockedBuffer, mSecureUserId);
             ALOGD("Enroll: init step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: Check return code, recalibrate on convert()==-6
@@ -319,12 +324,12 @@ void EgisOperationLoops::EnrollAsync() {
                 return NotifyError((FingerprintError)rc);
 
             ProcessOpcode(cmdOut);
-            cmdIn.step = cmdOut.step;
         } while (cmdOut.step != Step::Done);
 
         do {
             if (CheckAndHandleCancel(lockedBuffer))
                 return;
+            lockedBuffer.MoveResponseToRequest();
             rc = SendEnroll(lockedBuffer);
             ALOGD("Enroll: step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: if convert(rc) == -9, restart from init_enroll
@@ -378,8 +383,6 @@ void EgisOperationLoops::EnrollAsync() {
                         ProcessOpcode(cmdOut);
                         break;
                 }
-
-            cmdIn.step = cmdOut.step;
         } while (cmdOut.step != Step::Done);
 
         if (cmdOut.enroll_status == 0x64) {
@@ -398,6 +401,7 @@ void EgisOperationLoops::EnrollAsync() {
         do {
             if (CheckAndHandleCancel(lockedBuffer))
                 return;
+            lockedBuffer.MoveResponseToRequest();
             rc = SendFinalizeEnroll(lockedBuffer);
             ALOGD("Enroll: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
 
@@ -405,7 +409,6 @@ void EgisOperationLoops::EnrollAsync() {
                 return NotifyError((FingerprintError)rc);
 
             ProcessOpcode(cmdOut);
-            cmdIn.step = cmdOut.step;
         } while (cmdOut.step != Step::Done);
 
         ALOGD("Enroll: Finished single step; done? %d", finished);
@@ -469,7 +472,7 @@ int EgisOperationLoops::Prepare() {
             // Preparation complete
             return 0;
 
-        cmdIn.step = cmdOut.step;
+        lockedBuffer.MoveResponseToRequest();
     }
     return -1;
 }

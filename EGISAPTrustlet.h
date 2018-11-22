@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <hardware/hw_auth_token.h>
+#include <string.h>
 #include <algorithm>
 #include <vector>
 #include "QSEEKeymasterTrustlet.h"
@@ -206,6 +207,10 @@ class EGISAPTrustlet : public QSEETrustlet {
 
         trustlet_buffer_t &GetResponse() {
             return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + ResponseOffset);
+        }
+
+        void MoveResponseToRequest() {
+            memmove(&GetRequest(), &GetResponse(), sizeof(trustlet_buffer_t));
         }
 
         static constexpr size_t BufferSize() {
