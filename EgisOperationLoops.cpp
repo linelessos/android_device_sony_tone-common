@@ -140,8 +140,6 @@ bool EgisOperationLoops::ConvertAndCheckError(int &rc) {
         return false;
 
     rc = ConvertReturnCode(rc);
-    ALOGW("DOUBLE MUTEX LOCK!");
-    Cancel();
     return true;
 }
 
@@ -212,7 +210,7 @@ EgisOperationLoops::AsyncState EgisOperationLoops::ReadState() {
     return static_cast<AsyncState>(requestedState);
 }
 
-bool EgisOperationLoops::IsCancelled() {
+bool EgisOperationLoops::CheckAndHandleCancel(EGISAPTrustlet::API &lockedBuffer) {
     auto requestedState = static_cast<eventfd_t>(ReadState());
     if (requestedState & ~static_cast<eventfd_t>(AsyncState::Cancel))
         // The call to eventfd_read consumed an (unexpected and incorrect)
@@ -222,14 +220,13 @@ bool EgisOperationLoops::IsCancelled() {
     auto cancelled = requestedState & static_cast<eventfd_t>(AsyncState::Cancel);
     ALOGV("%s: %lu", __func__, cancelled);
     if (cancelled)
-        RunCancel();
+        RunCancel(lockedBuffer);
     return cancelled;
 }
 
-int EgisOperationLoops::RunCancel() {
+int EgisOperationLoops::RunCancel(EGISAPTrustlet::API &lockedBuffer) {
     ALOGD("Sending cancel command to TZ");
     int rc = 0;
-    auto lockedBuffer = GetLockedAPI();
     auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
     const auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
     do {
@@ -312,7 +309,7 @@ void EgisOperationLoops::EnrollAsync() {
 
     for (bool finished = false; !finished;) {
         do {
-            if (IsCancelled())
+            if (CheckAndHandleCancel(lockedBuffer))
                 return;
             rc = SendInitEnroll(lockedBuffer, mSecureUserId);
             ALOGD("Enroll: init step, rc = %d, next step = %d", rc, cmdOut.step);
@@ -326,7 +323,7 @@ void EgisOperationLoops::EnrollAsync() {
         } while (cmdOut.step != Step::Done);
 
         do {
-            if (IsCancelled())
+            if (CheckAndHandleCancel(lockedBuffer))
                 return;
             rc = SendEnroll(lockedBuffer);
             ALOGD("Enroll: step, rc = %d, next step = %d", rc, cmdOut.step);
@@ -360,7 +357,7 @@ void EgisOperationLoops::EnrollAsync() {
                                 cmdOut.step = Step::ContinueAfterTimeout;
                                 break;
                             case WakeupReason::Event:
-                                if (IsCancelled())
+                                if (CheckAndHandleCancel(lockedBuffer))
                                     return;
                                 break;
                             case WakeupReason::Finger:
@@ -399,7 +396,7 @@ void EgisOperationLoops::EnrollAsync() {
             NotifyEnrollResult(cmdOut.enroll_finger_id, cmdOut.enroll_steps_required - cmdOut.enroll_steps_done);
 
         do {
-            if (IsCancelled())
+            if (CheckAndHandleCancel(lockedBuffer))
                 return;
             rc = SendFinalizeEnroll(lockedBuffer);
             ALOGD("Enroll: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
@@ -460,9 +457,7 @@ int EgisOperationLoops::Prepare() {
     cmdIn.step = Step::Init;
 
     // Process step until it is 0 (meaning done):
-    // TODO: This is part of the initialization; is it even possible for the service
-    // to request cancel() at this point?
-    while (!IsCancelled()) {
+    for (;;) {
         int rc = SendPrepare(lockedBuffer);
         rc = ConvertReturnCode(rc);
         ALOGD("Prepare rc = %d, next step = %d", rc, cmdOut.step);

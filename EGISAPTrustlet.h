@@ -186,6 +186,7 @@ static_assert(offsetof(ets_authen_token_t, challenge) == 0x8, "");
 static_assert(offsetof(ets_authen_token_t, timestamp) == 0x28, "");
 
 class EGISAPTrustlet : public QSEETrustlet {
+   protected:
     class API {
         // TODO: Could be a templated class defined in QSEETrustlet.
 

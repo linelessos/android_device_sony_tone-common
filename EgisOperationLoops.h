@@ -61,13 +61,15 @@ class EgisOperationLoops : public EGISAPTrustlet {
      * Atomically check if the current operation is requested to cancel.
      * If cancelled, TZ cancel will be invoked and the service will be
      * notified before returning.
+     * Requires a locked buffer to atomically cancel the current operation without
+     * interfering with another command.
      */
-    bool IsCancelled();
+    bool CheckAndHandleCancel(EGISAPTrustlet::API &);
     /**
      * Invoked when an operation encounters a cancellation as requested by cancel() from the Android service.
      * Propagates the cancel operation to the TZ-app so that it can do its cleanup.
      */
-    int RunCancel();
+    int RunCancel(EGISAPTrustlet::API &);
 
     // Temporaries for asynchronous operation:
     uint64_t mSecureUserId;
