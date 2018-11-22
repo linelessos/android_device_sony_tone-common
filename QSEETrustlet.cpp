@@ -7,6 +7,7 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC QSEETrustlet"
+#define LOG_NDEBUG 0
 #include <log/log.h>
 
 #ifndef QSEE_LIBRARY
@@ -74,13 +75,17 @@ QSEETrustlet::LockedIONBuffer QSEETrustlet::GetLockedBuffer() {
 }
 
 QSEETrustlet::LockedIONBuffer::LockedIONBuffer(QSEETrustlet *trustlet) : mTrustlet(trustlet) {
-    if (trustlet)
-        trustlet->mBufferMutex.lock();
+    if (trustlet) {
+        ALOGV("Locking %p", mTrustlet);
+        mTrustlet->mBufferMutex.lock();
+    }
 }
 
 QSEETrustlet::LockedIONBuffer::~LockedIONBuffer() {
-    if (mTrustlet)
+    if (mTrustlet) {
+        ALOGV("Unlocking %p", mTrustlet);
         mTrustlet->mBufferMutex.unlock();
+    }
 }
 
 QSEETrustlet::LockedIONBuffer::LockedIONBuffer(LockedIONBuffer &&other) : mTrustlet(other.mTrustlet) {

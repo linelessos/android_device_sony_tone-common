@@ -177,6 +177,22 @@ int EGISAPTrustlet::SendFinalizeEnroll(EGISAPTrustlet::API &api) {
     return SendCommand(api, Command::FinalizeEnroll);
 }
 
+int EGISAPTrustlet::SendInitAuthenticate(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::InitAuthenticate);
+}
+
+int EGISAPTrustlet::SendAuthenticate(EGISAPTrustlet::API &api) {
+    // NOTE: This commands sets `padding5` in trustlet_buffer_t, as well
+    // as passing an output buffer through an extra ion buffer.
+    // These are unused in the et510/et516 HAL however, and are likely only
+    // used for other hardware revisions.
+    return SendCommand(api, Command::Authenticate);
+}
+
+int EGISAPTrustlet::SendFinalizeAuthenticate(EGISAPTrustlet::API &api) {
+    return SendCommand(api, Command::FinalizeAuthenticate);
+}
+
 int EGISAPTrustlet::SetUserDataPath(const char *path) {
     auto lockedBuffer = GetLockedAPI();
     auto &extra = lockedBuffer.GetRequest().extra_buffer;

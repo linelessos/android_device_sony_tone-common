@@ -95,8 +95,13 @@ Return<RequestStatus> BiometricsFingerprint_efp::setActiveGroup(uint32_t gid, co
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::authenticate(uint64_t operationId, uint32_t gid) {
-    ALOGE("%s not implemented!", __func__);
-    return RequestStatus::SYS_OK;
+    ALOGI("%s: gid = %d, secret = %lu", __func__, gid, operationId);
+    if (gid != mGid) {
+        ALOGE("Cannot authenticate finger for different gid! Caller needs to update storePath first with setActiveGroup()!");
+        return RequestStatus::SYS_EINVAL;
+    }
+
+    return loops.Authenticate(operationId) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 }  // namespace implementation

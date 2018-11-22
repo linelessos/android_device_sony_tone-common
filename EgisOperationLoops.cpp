@@ -3,6 +3,8 @@
 #if PLATFORM_SDK_VERSION >= 28
 #include <bits/epoll_event.h>
 #endif
+#include <arpa/inet.h>
+#include <hardware/hw_auth_token.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/poll.h>
@@ -14,6 +16,8 @@
 #define LOG_TAG "FPC ET"
 #define LOG_NDEBUG 0
 #include <log/log.h>
+
+using ::android::hardware::hidl_vec;
 
 EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId), mAuthenticatorId(GetRand64()) {
     event_fd = eventfd((eventfd_t)AsyncState::Idle, EFD_NONBLOCK);
@@ -80,7 +84,7 @@ void EgisOperationLoops::RunThread() {
                 NotifyError(FingerprintError::ERROR_CANCELED);
                 break;
             case AsyncState::Authenticating:
-                // TODO
+                AuthenticateAsync();
                 break;
             case AsyncState::Enrolling:
                 EnrollAsync();
@@ -92,6 +96,12 @@ void EgisOperationLoops::RunThread() {
 
 void EgisOperationLoops::ProcessOpcode(const command_buffer_t &cmd) {
     switch (cmd.step) {
+        case Step::WaitFingerprint:
+            ALOGE("%s: Expected to wait for finger in non-interactive state!", __func__);
+            // Waiting for a finger event (hardware gpio trigger for that matter) should
+            // not happen for anything other than enroll and authenticate, where this case
+            // is handled explicitly.
+            break;
         case Step::NotReady:
             ALOGV("%s: Device not ready, sleeping for %dms", __func__, cmd.timeout);
             usleep(1000 * cmd.timeout);
@@ -99,12 +109,6 @@ void EgisOperationLoops::ProcessOpcode(const command_buffer_t &cmd) {
         case Step::Error:
             ALOGV("%s: Device error, resetting...", __func__);
             dev.Reset();
-            break;
-        case Step::WaitFingerprint:
-            ALOGE("%s: Expected to wait for finger in non-interactive state!", __func__);
-            // Waiting for a finger event (hardware gpio trigger for that matter) should
-            // not happen for anything other than enroll and authenticate, where this case
-            // is handled explicitly.
             break;
         default:
             break;
@@ -238,8 +242,10 @@ int EgisOperationLoops::RunCancel(EGISAPTrustlet::API &lockedBuffer) {
     rc = ConvertReturnCode(rc);
     if (rc)
         ALOGE("Failed to cancel, rc = %d", rc);
-    else
-        NotifyError(FingerprintError::ERROR_CANCELED);
+
+    // Even if cancelling failed on the hardware side, still notify the
+    // HAL to prevent deadlocks.
+    NotifyError(FingerprintError::ERROR_CANCELED);
     return rc;
 }
 
@@ -270,6 +276,17 @@ void EgisOperationLoops::NotifyAcquired(FingerprintAcquiredInfo acquiredInfo) {
                                     acquiredInfo >= FingerprintAcquiredInfo::ACQUIRED_VENDOR ? (int32_t)acquiredInfo : 0);
 }
 
+void EgisOperationLoops::NotifyAuthenticated(uint32_t fid, const hw_auth_token_t &hat) {
+    auto hat_p = reinterpret_cast<const uint8_t *>(&hat);
+    const hidl_vec<uint8_t> token(hat_p, hat_p + sizeof(hw_auth_token_t));
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback)
+        mClientCallback->onAuthenticated(mDeviceId,
+                                         fid,
+                                         mGid,
+                                         token);
+}
+
 void EgisOperationLoops::NotifyEnrollResult(uint32_t fid, uint32_t remaining) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     if (mClientCallback)
@@ -294,7 +311,56 @@ void EgisOperationLoops::NotifyBadImage(int reason) {
     NotifyAcquired(acquiredInfo);
 }
 
-// TODO: Check restart cases
+void EgisOperationLoops::HandleMainStep(EGISAPTrustlet::API &lockedBuffer, command_buffer_t &cmd) {
+    switch (cmd.step) {
+        case Step::WaitFingerprint: {
+            auto reason = WaitForEvent();
+            switch (reason) {
+                case WakeupReason::Timeout:
+                    NotifyError(FingerprintError::ERROR_TIMEOUT);
+                    // Assuming this is some magic state that causes the TZ to clean up,
+                    // followed by an exit (assuming the rc == 0x29).
+                    // TODO: That can be tested with an explicit timeout!
+                    cmd.step = Step::ContinueAfterTimeout;
+                    break;
+                case WakeupReason::Event:
+                    // Nothing to do. The two callers check for a cancel event at the next loop
+                    // iteration, which is the only thing that can trigger an event while an
+                    // enroll or authenticate session is in progress.
+                    break;
+                case WakeupReason::Finger:
+                    // Continue processing
+                    break;
+            }
+            break;
+        }
+        case Step::FingerDetected: {
+            if (cmd.result_length != sizeof(cmd.match_result))
+                ALOGW("Unexpected result_length = %d, should be %zu!",
+                      cmd.result_length, sizeof(cmd.match_result));
+            const auto &result = cmd.match_result;
+            ALOGI("Detection result: quantity = %d, num_corners = %d, coverage = %d, [%d %d] [%d %d %d] %d",
+                  result.qty,
+                  result.corner_count,
+                  result.coverage,
+                  result.mat1[1],
+                  result.mat1[0],
+                  result.mat2[0],
+                  result.mat2[1],
+                  result.mat2[2],
+                  result.other);
+            break;
+        }
+        case Step::FingerAcquired:
+            NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_GOOD);
+            break;
+        default:
+            // NOTE: Most cases were handled as duplicates here.
+            ProcessOpcode(cmd);
+            break;
+    }
+}
+
 void EgisOperationLoops::EnrollAsync() {
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
@@ -344,45 +410,9 @@ void EgisOperationLoops::EnrollAsync() {
             } else if (rc == 0x27) {
                 ALOGD("Enroll: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
-            }
+            } else if (!rc)
+                HandleMainStep(lockedBuffer, cmdOut);
 
-            else if (!rc)
-                // TODO: best-guess. Things such as NotifyBadImage were originally called twice, also on FingerAcquired.
-                // cmd.step is usually 0 in case rc!=0
-                switch (cmdOut.step) {
-                    case Step::WaitFingerprint: {
-                        auto reason = WaitForEvent();
-                        ALOGD("Enroll: wakeup %d", reason);
-                        switch (reason) {
-                            case WakeupReason::Timeout:
-                                NotifyError(FingerprintError::ERROR_TIMEOUT);
-                                // Assuming this is some magic state that causes the TZ to clean up,
-                                // followed by an exit (assuming the rc == 0x29).
-                                // TODO: That can be tested with an explicit timeout!
-                                cmdOut.step = Step::ContinueAfterTimeout;
-                                break;
-                            case WakeupReason::Event:
-                                if (CheckAndHandleCancel(lockedBuffer))
-                                    return;
-                                break;
-                            case WakeupReason::Finger:
-                                ALOGV("Enroll: Finger encountered");
-                                // Continue processing
-                                break;
-                        }
-                        break;
-                    }
-                    case Step::FingerDetected:
-                        // Nothing.
-                        break;
-                    case Step::FingerAcquired:
-                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_GOOD);
-                        break;
-                    default:
-                        // NOTE: Most cases were handled as duplicates here.
-                        ProcessOpcode(cmdOut);
-                        break;
-                }
         } while (cmdOut.step != Step::Done);
 
         if (cmdOut.enroll_status == 0x64) {
@@ -415,6 +445,127 @@ void EgisOperationLoops::EnrollAsync() {
     // AuthenticatorId is a token associated with the current fp set. It must be
     // changed if the set is altered:
     mAuthenticatorId = GetRand64(lockedBuffer);
+}
+
+void EgisOperationLoops::AuthenticateAsync() {
+    int rc = 0;
+    auto lockedBuffer = GetLockedAPI();
+    auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
+
+    for (bool authenticated = false; !authenticated;) {
+        // Zero step:
+        cmdOut.step = Step::Done;
+
+        // Sidenote: It is possible to specify a range through cmdOut.finger_list.
+        cmdOut.finger_count = 0;
+
+        // Output size of match_result
+        cmdOut.result_length = 0;
+
+        do {
+            if (CheckAndHandleCancel(lockedBuffer))
+                return;
+            lockedBuffer.MoveResponseToRequest();
+            rc = SendInitAuthenticate(lockedBuffer);
+            ALOGD("Authenticate: init step, rc = %d, next step = %d", rc, cmdOut.step);
+
+            if (rc == 0x33) {
+                // Best guess
+                ALOGE("Authenticate: no fingerprints");
+                return NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
+            }
+
+            if (ConvertAndCheckError(rc))
+                // TODO: Handle rc == -6 -> calibrate error.
+                return NotifyError((FingerprintError)rc);
+
+            ProcessOpcode(cmdOut);
+        } while (cmdOut.step != Step::Done);
+
+        do {
+            if (CheckAndHandleCancel(lockedBuffer))
+                return;
+            lockedBuffer.MoveResponseToRequest();
+            rc = SendAuthenticate(lockedBuffer);
+            ALOGD("Authenticate: step, rc = %d, next step = %d", rc, cmdOut.step);
+            // TODO: if convert(rc) == -9, restart from init_enroll
+
+            if (ConvertAndCheckError(rc))
+                return NotifyError((FingerprintError)rc);
+
+            if (rc == 0x20) {
+                ALOGD("Authenticate: Match fail");
+                ALOGW("TODO: Restart authentication session!");
+            } else if (rc == 0x27) {
+                ALOGD("Authenticate: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
+                NotifyBadImage(cmdOut.bad_image_reason);
+                ALOGW("TODO: Restart authentication session!");
+            } else if (!rc)
+                HandleMainStep(lockedBuffer, cmdOut);
+
+        } while (cmdOut.step != Step::Done);
+
+        if (cmdOut.result_length != sizeof(cmdOut.authenticate_result))
+            ALOGW("Unexpected result_length = %d, should be %zu!",
+                  cmdOut.result_length, sizeof(cmdOut.authenticate_result));
+
+        // Store whether authentication was successful or not. Even when finalize/cancel fails, the
+        // finger was still valid and should result in a successful unlock.
+        authenticated = !rc;
+
+        do {
+            if (CheckAndHandleCancel(lockedBuffer))
+                return;
+            lockedBuffer.MoveResponseToRequest();
+            // It is possible to retrieve a buffer with "image data" here,
+            // but this is unused by the current HAL.
+            rc = SendFinalizeAuthenticate(lockedBuffer);
+            ALOGD("Authenticate: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
+
+            if (ConvertAndCheckError(rc))
+                return NotifyError((FingerprintError)rc);
+
+            ProcessOpcode(cmdOut);
+        } while (cmdOut.step != Step::Done);
+
+        // NOTE: This special cancel operation is only in the codepath that
+        // doesn't wait until the finger leaves the sensor. The other
+        // codepath is never used.
+        do {
+            // Special version of cancel?
+            cmdOut.step = Step::CancelFingerprintWait;
+            lockedBuffer.MoveResponseToRequest();
+            rc = SendCancel(lockedBuffer);
+            ALOGD("Authenticate: cancel instead of wait-finger-off step, rc = %d, next step = %d", rc, cmdOut.step);
+
+            ProcessOpcode(cmdOut);
+        } while (cmdOut.step != Step::Done);
+    }
+
+    // On loop exit, authentication was successful. Otherwise, the session is
+    // either restarted or the the function has returned on error/cancel.
+
+    ALOGI("Authentication successful: fid = %d, score = %d", cmdOut.finger_id, cmdOut.match_score);
+
+    const auto &result = cmdOut.authenticate_result;
+    ALOGD("Authentication match result: cov=%d, quality=%d, score=%d, index=%d, template_cnt=%d, capture_time=%d, identify_time=%d",
+          result.coverage,
+          result.quality,
+          result.score,
+          result.index,
+          result.template_cnt,
+          result.capture_time,
+          result.identify_time);
+    ALOGD("hmac timestamp: %ld secure_user_id: %ld ", result.hmac_timestamp, result.secure_user_id);
+
+    // Finalize challenge buffer by filling in the cryptographic response:
+    mCurrentChallenge.timestamp = result.hmac_timestamp;
+    mCurrentChallenge.user_id = result.secure_user_id;
+    memcpy(mCurrentChallenge.hmac, result.hmac, sizeof(result.hmac));
+
+    NotifyAuthenticated(cmdOut.finger_id, mCurrentChallenge);
+    // Clear "sensitive" authentication tokens:
+    memset(&mCurrentChallenge, 0, sizeof(mCurrentChallenge));
 }
 
 uint64_t EgisOperationLoops::GetAuthenticatorId() {
@@ -456,6 +607,8 @@ int EgisOperationLoops::RemoveFinger(uint32_t fid) {
     // Although not explicitly mentioned in the documentation, removing a fingerprint
     // definitely changes the current set of fingers, thus requiring an authid change:
     mAuthenticatorId = GetRand64();
+    if (rc)
+        NotifyError(FingerprintError::ERROR_UNABLE_TO_REMOVE);
     return rc;
 }
 
@@ -509,11 +662,16 @@ int EgisOperationLoops::Enumerate() {
 }
 
 int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) {
+    if (timeoutSec)
+        ALOGW("%s: Timeout of %d ignored", __func__, timeoutSec);
     int rc = SetAuthToken(hat);
     if (rc) {
         ALOGE("Failed to set auth token, rc = %d", rc);
         goto error;
     }
+
+    // TODO: Check if any of the functions in this or the async codepath throw
+    // an error for >5 fingerprints (and are eligible for throwing ERROR_NO_SPACE).
 
     {
         auto api = GetLockedAPI();
@@ -531,11 +689,38 @@ int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) 
             goto error;
         }
 
-        if (MoveToState(AsyncState::Enrolling))
+        rc = !MoveToState(AsyncState::Enrolling);
+        if (!rc)
             return 0;
     }
 
 error:
+    ALOGD("%s: TODO: Determine meaning of rc = %#x", __func__, rc);
+    NotifyError(FingerprintError::ERROR_HW_UNAVAILABLE);
+    return rc;
+}
+
+int EgisOperationLoops::Authenticate(uint64_t challenge) {
+    int rc = 0;
+
+    memset(&mCurrentChallenge, 0, sizeof(mCurrentChallenge));
+    mCurrentChallenge.authenticator_type = htonl(hw_authenticator_type_t::HW_AUTH_FINGERPRINT);
+    mCurrentChallenge.challenge = challenge;
+    mCurrentChallenge.authenticator_id = mAuthenticatorId;
+
+    ALOGD("Sending auth token...");
+    rc = SetAuthToken(mCurrentChallenge);
+    if (rc) {
+        ALOGE("Failed to set challenge authentication token");
+        goto error;
+    }
+
+    rc = !MoveToState(AsyncState::Authenticating);
+    if (!rc)
+        return 0;
+
+error:
+    ALOGD("%s: TODO: Determine meaning of rc = %#x", __func__, rc);
     NotifyError(FingerprintError::ERROR_HW_UNAVAILABLE);
     return rc;
 }

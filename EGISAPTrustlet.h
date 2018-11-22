@@ -15,11 +15,38 @@ typedef struct {
     int mat1[2];
     int mat2[3];
     int other;
-} match_result;
+} match_result_t;
 
-static_assert(offsetof(match_result, mat1) == 0xc, "");
-static_assert(offsetof(match_result, mat2) == 0x14, "");
-static_assert(offsetof(match_result, other) == 0x20, "");
+static_assert(offsetof(match_result_t, mat1) == 0xc, "");
+static_assert(offsetof(match_result_t, mat2) == 0x14, "");
+static_assert(offsetof(match_result_t, other) == 0x20, "");
+
+typedef struct {
+    uint64_t hmac_timestamp;
+    char hmac[32];  // 256 bits
+    uint64_t secure_user_id;
+
+    int template_cnt;
+    int capture_time;
+    int identify_time;
+    int score;
+    int index;
+
+    int padding0;
+
+    int unknown;
+
+    int coverage;
+    int quality;
+    int padding1;
+} authenticate_result_t;
+
+static_assert(sizeof(authenticate_result_t) == 0x58, "buffer_168 has wrong size!");
+static_assert(offsetof(authenticate_result_t, secure_user_id) == 0x28, "");
+static_assert(offsetof(authenticate_result_t, template_cnt) == 0x30, "");
+static_assert(offsetof(authenticate_result_t, index) == 0x40, "");
+static_assert(offsetof(authenticate_result_t, unknown) == 0x48, "");
+static_assert(offsetof(authenticate_result_t, coverage) == 0x4c, "");
 
 enum class Step : uint32_t {
     Done = 0,
@@ -30,6 +57,7 @@ enum class Step : uint32_t {
     NotReady = 7,
     Error = 8,  // Indication for a reset
     Cancel = 0x19,
+    CancelFingerprintWait = 0x1a,
     ContinueAfterTimeout = 0x25,
 };
 
@@ -57,11 +85,14 @@ typedef struct {
     int finger_count;
 
     char padding3[0x10];
-    match_result match_result;
+    union {
+        match_result_t match_result;
+        authenticate_result_t authenticate_result;
+    };
 
-    char padding4[0x100 - sizeof(match_result)];
+    char padding4[0x100 - sizeof(authenticate_result)];
 
-    int match_result_length;
+    int result_length;
     uint32_t enroll_finger_id;
 } command_buffer_t;
 
@@ -74,7 +105,8 @@ static_assert(offsetof(command_buffer_t, finger_id) == 0x34, "");
 static_assert(offsetof(command_buffer_t, finger_list) == 0x38, "");
 static_assert(offsetof(command_buffer_t, finger_count) == 0x4c, "");
 static_assert(offsetof(command_buffer_t, match_result) == 0x60, "");
-static_assert(offsetof(command_buffer_t, match_result_length) == 0x160, "");
+static_assert(offsetof(command_buffer_t, authenticate_result) == 0x60, "");
+static_assert(offsetof(command_buffer_t, result_length) == 0x160, "");
 static_assert(offsetof(command_buffer_t, enroll_finger_id) == 0x164, "");
 
 enum class ExtraCommand : uint32_t {
@@ -125,7 +157,12 @@ enum class Command : uint32_t {
     InitEnroll = 2,
     Enroll = 3,
     FinalizeEnroll = 4,
+    InitAuthenticate = 5,
+    Authenticate = 6,
+    FinalizeAuthenticate = 7,
     Cancel = 8,
+    // Only used when an extra ion buffer is passed (for example when retrieving the version):
+    // ExtraControl = 9,
     ExtraCommand = 0xa,
     DataInit = 0x10,
     DataUninit = 0x11,
@@ -171,7 +208,9 @@ static_assert(offsetof(trustlet_buffer_t, extra_buffer_type_size) == 0x24, "");
 static_assert(offsetof(trustlet_buffer_t, secure_user_id) == 0x4e8, "");
 
 // TODO: Move to another file?
-// Non-packed version of hw_auth_token_t, used in communication to TZ.
+/*
+ * Non-packed version of hw_auth_token_t, used in communication to TZ.
+ */
 typedef struct {
     uint8_t version;
     // Implicit 7-byte padding
@@ -218,7 +257,7 @@ class EGISAPTrustlet : public QSEETrustlet {
         }
 
         /**
-         * Returns extra_buffer.data as a reference to T, and initializes
+         * @return extra_buffer.data as a reference to T, and initializes
          * the data_size field to sizeof(T).
          */
         template <typename T>
@@ -253,6 +292,9 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendInitEnroll(API &, uint64_t);
     int SendEnroll(API &);
     int SendFinalizeEnroll(API &);
+    int SendInitAuthenticate(API &);
+    int SendAuthenticate(API &);
+    int SendFinalizeAuthenticate(API &);
 
     // Extra commands:
     int SetUserDataPath(const char *);
