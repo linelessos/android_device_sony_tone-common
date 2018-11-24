@@ -15,7 +15,7 @@
 #define LOG_NDEBUG 0
 #include <log/log.h>
 
-EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId) {
+EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId), mAuthenticatorId(GetRand64()) {
     event_fd = eventfd((eventfd_t)AsyncState::Idle, EFD_NONBLOCK);
     if (event_fd < 0)
         throw FormatException("Failed to create eventfd: %s", strerror(errno));
@@ -410,11 +410,15 @@ void EgisOperationLoops::EnrollAsync() {
 
             ProcessOpcode(cmdOut);
         } while (cmdOut.step != Step::Done);
-
-        ALOGD("Enroll: Finished single step; done? %d", finished);
-
-        // TODO: Update authenticatorId!!
     }
+
+    // AuthenticatorId is a token associated with the current fp set. It must be
+    // changed if the set is altered:
+    mAuthenticatorId = GetRand64();
+}
+
+uint64_t EgisOperationLoops::GetAuthenticatorId() {
+    return mAuthenticatorId;
 }
 
 void EgisOperationLoops::SetNotify(const sp<IBiometricsFingerprintClientCallback> callback) {
@@ -441,14 +445,17 @@ int EgisOperationLoops::RemoveFinger(uint32_t fid) {
             rc = EGISAPTrustlet::RemoveFinger(fid);
             if (rc)
                 break;
-            else
-                NotifyRemove(fid, --remaining);
+            NotifyRemove(fid, --remaining);
         }
     } else {
         rc = EGISAPTrustlet::RemoveFinger(fid);
         if (!rc)
             NotifyRemove(fid, 0);
     }
+
+    // Although not explicitly mentioned in the documentation, removing a fingerprint
+    // definitely changes the current set of fingers, thus requiring an authid change:
+    mAuthenticatorId = GetRand64();
     return rc;
 }
 

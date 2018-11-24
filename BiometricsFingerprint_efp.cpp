@@ -22,8 +22,6 @@ BiometricsFingerprint_efp::BiometricsFingerprint_efp() : loops(reinterpret_cast<
     rc = loops.SetMasterKey(mMasterKey);
     if (rc)
         throw FormatException("SetMasterKey failed with rc = %d", rc);
-
-    mAuthenticatorId = loops.GetRand64();
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
@@ -67,7 +65,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::postEnroll() {
 }
 
 Return<uint64_t> BiometricsFingerprint_efp::getAuthenticatorId() {
-    return mAuthenticatorId;
+    return loops.GetAuthenticatorId();
 }
 
 Return<RequestStatus> BiometricsFingerprint_efp::cancel() {

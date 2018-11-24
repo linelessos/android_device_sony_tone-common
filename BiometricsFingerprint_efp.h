@@ -44,7 +44,6 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
 
    private:
     MasterKey mMasterKey;
-    uint64_t mAuthenticatorId;
     uint32_t mGid;
     EgisOperationLoops loops;
 };

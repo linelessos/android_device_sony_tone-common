@@ -33,6 +33,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     uint32_t mGid;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     std::mutex mClientCallbackMutex;
+    uint64_t mAuthenticatorId;
 
     AsyncState currentState = AsyncState::Idle;
     int epoll_fd;
@@ -85,6 +86,8 @@ class EgisOperationLoops : public EGISAPTrustlet {
     void EnrollAsync();
 
    public:
+    uint64_t GetAuthenticatorId();
+
     void SetNotify(const sp<IBiometricsFingerprintClientCallback>);
     int SetUserDataPath(uint32_t gid, const char *path);
     int RemoveFinger(uint32_t fid);
