@@ -414,7 +414,7 @@ void EgisOperationLoops::EnrollAsync() {
 
     // AuthenticatorId is a token associated with the current fp set. It must be
     // changed if the set is altered:
-    mAuthenticatorId = GetRand64();
+    mAuthenticatorId = GetRand64(lockedBuffer);
 }
 
 uint64_t EgisOperationLoops::GetAuthenticatorId() {

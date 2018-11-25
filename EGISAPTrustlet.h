@@ -243,6 +243,7 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendExtraCommand(ExtraCommand);
 
     // Helper calls:
+    uint64_t CallFor64BitResponse(API &, ExtraCommand);
     uint64_t CallFor64BitResponse(ExtraCommand);
 
     // Normal commands:
@@ -260,6 +261,7 @@ class EGISAPTrustlet : public QSEETrustlet {
     int GetFingerList(std::vector<uint32_t> &);
     int SetSecureUserId(API &, uint64_t);
     int RemoveFinger(uint32_t);
+    uint64_t GetRand64(API &);
     uint64_t GetRand64();
     uint64_t GetChallenge();
     int ClearChallenge();

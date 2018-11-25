@@ -129,8 +129,7 @@ int EGISAPTrustlet::SendExtraCommand(ExtraCommand command) {
     return SendExtraCommand(buffer, command);
 }
 
-uint64_t EGISAPTrustlet::CallFor64BitResponse(ExtraCommand command) {
-    auto lockedBuffer = GetLockedAPI();
+uint64_t EGISAPTrustlet::CallFor64BitResponse(EGISAPTrustlet::API &lockedBuffer, ExtraCommand command) {
     const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
     auto rc = SendExtraCommand(lockedBuffer, command);
     if (rc) {
@@ -146,6 +145,11 @@ uint64_t EGISAPTrustlet::CallFor64BitResponse(ExtraCommand command) {
     auto rand = *reinterpret_cast<const uint64_t *>(extraOut.data);
     ALOGD("%s: %#lx", __func__, rand);
     return rand;
+}
+
+uint64_t EGISAPTrustlet::CallFor64BitResponse(ExtraCommand command) {
+    auto lockedBuffer = GetLockedAPI();
+    return CallFor64BitResponse(lockedBuffer, command);
 }
 
 int EGISAPTrustlet::SendPrepare(EGISAPTrustlet::API &api) {
@@ -239,6 +243,11 @@ int EGISAPTrustlet::RemoveFinger(uint32_t fid) {
     auto &extra = lockedBuffer.GetRequest().extra_buffer;
     extra.remove_fid = fid;
     return SendExtraCommand(lockedBuffer, ExtraCommand::RemoveFinger);
+}
+
+// Provide variant that operates on an already-locked buffer
+uint64_t EGISAPTrustlet::GetRand64(EGISAPTrustlet::API &api) {
+    return CallFor64BitResponse(api, ExtraCommand::GetRand64);
 }
 
 uint64_t EGISAPTrustlet::GetRand64() {
