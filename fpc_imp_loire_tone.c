@@ -496,33 +496,27 @@ err_t fpc_update_template(fpc_imp_data_t __unused *data)
     return 0;
 }
 
-
-err_t fpc_get_print_count(fpc_imp_data_t __unused *data)
-{
-    ALOGV(__func__);
-    return 0;
-}
-
-
-fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t __unused count)
+fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     fpc_fingerprint_index_t idx_data = {0};
-    fpc_fingerprint_list_t cmd = {0};
+    fpc_fingerprint_list_t cmd = {
+        .group_id = FPC_GROUP_NORMAL,
+        .cmd_id = FPC_GET_FINGERPRINTS,
+        .length = MAX_FINGERPRINTS,
+    };
     unsigned int i;
-
-    cmd.group_id = FPC_GROUP_NORMAL;
-    cmd.cmd_id = FPC_GET_FINGERPRINTS;
 
     int ret = send_custom_cmd(ldata, &cmd, sizeof(cmd));
     if(ret < 0 || cmd.status != 0)
     {
-        ALOGE("Error retrieving fingerprints\n");
+        ALOGE("Error retrieving fingerprints: rc = %d, status = %d", ret, cmd.status);
     }
 
-    ALOGI("Found %d fingerprints\n", cmd.length);
-    for(i=0; i<cmd.length; i++)
+    ALOGI("Found %d fingerprints", cmd.length);
+    idx_data.print_count = cmd.length;
+    for(i=0; i< cmd.length; i++)
     {
         idx_data.prints[i] = cmd.fingerprints[i];
     }
