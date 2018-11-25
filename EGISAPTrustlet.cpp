@@ -92,7 +92,7 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     // TODO: List expected response codes in an enum.
     rc = lockedBuffer.GetResponse().result;
     if (rc)
-        ALOGE("SendCommand result = %d", rc);
+        ALOGE("SendCommand result = %#x", rc);
     return rc;
 }
 
@@ -209,9 +209,7 @@ int EGISAPTrustlet::SetUserDataPath(const char *path) {
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetUserDataPath);
 }
 
-int EGISAPTrustlet::SetAuthToken(const hw_auth_token_t &hat) {
-    auto lockedBuffer = GetLockedAPI();
-
+int EGISAPTrustlet::SetAuthToken(EGISAPTrustlet::API &lockedBuffer, const hw_auth_token_t &hat) {
     // Copy to ets's non-packed structure:
     auto &token = lockedBuffer.GetExtraRequestDataBuffer<ets_authen_token_t>();
     token.version = hat.version,
@@ -225,11 +223,29 @@ int EGISAPTrustlet::SetAuthToken(const hw_auth_token_t &hat) {
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetAuthToken);
 }
 
+int EGISAPTrustlet::SetAuthToken(const hw_auth_token_t &hat) {
+    auto lockedBuffer = GetLockedAPI();
+    return SetAuthToken(lockedBuffer, hat);
+}
+
 int EGISAPTrustlet::CheckAuthToken(EGISAPTrustlet::API &api) {
-    // TODO: Buffer only passed because it's kept open. No need probably,
-    // since input data is overwritten anyway.
-    // Same for setsecureuserid.
-    return SendExtraCommand(api, ExtraCommand::CheckAuthToken);
+    // NOTE: Locked buffer is only passed to keep this in the same locked session.
+    // No data needs to be passed to this function.
+    int rc = SendExtraCommand(api, ExtraCommand::CheckAuthToken);
+
+    switch (rc) {
+        case EGISAPError::InvalidHatChallenge:
+            ALOGE("%s: hw_auth_token_t challenge is invalid", __func__);
+            break;
+        case EGISAPError::InvalidHatVersion:
+            ALOGE("%s: hw_auth_token_t version is invalid", __func__);
+            break;
+        case EGISAPError::InvalidSecureUserId:
+            ALOGE("%s: Yet-unknown InitEnroll error, potentially something to do with the secure user id", __func__);
+            break;
+    }
+
+    return rc;
 }
 
 int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {

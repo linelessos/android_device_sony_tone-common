@@ -168,6 +168,26 @@ enum class Command : uint32_t {
     DataUninit = 0x11,
 };
 
+// TODO: class
+enum EGISAPError {
+    /**
+     * Thrown when the given challenge does not match the last result from GetChallenge(),
+     * or when the challenge has been cleared with ClearChallenge() (and thus doesn't match either).
+     */
+    InvalidHatChallenge = -0x39,
+    InvalidHatVersion = -0x3a,
+    /**
+     * Thrown by SendInitEnroll for yet-unknown reasons. Easily reproducible when the buffer
+     * that goes into SetSecureUserId is not zeroed, but even if it is this error happens
+     * seemingly at random.
+     *
+     * TODO: This error still occurs at random, and it is yet unknown what the cause is.
+     * As far as I can remember, this occured on the stock HAL as well.
+     * TODO: The name is a best-guess.
+     */
+    InvalidSecureUserId = -0x3b,
+};
+
 /**
  * The datastructure through which this userspace HAL communicates with the TZ app.
  */
@@ -175,7 +195,7 @@ typedef struct {
     Command command;
     uint32_t padding0;
     uint32_t unused_return_command;
-    uint32_t result;
+    EGISAPError result;
 
     uint64_t padding1;
 
@@ -196,9 +216,9 @@ typedef struct {
 
     uint64_t padding4;
 
-    uint32_t padding5;  // NOTE: This value is set to 0 only for command 6 (do_identify). TODO: Check if the value is set to something sensible on return.
+    uint32_t padding5;  // NOTE: This value is set to 0 only for command 6 (SendAuthenticate). TODO: Check if the value is set to something sensible on return.
     uint32_t padding6;
-    uint32_t secure_user_id;  // user_id from the HAT during enroll. TODO: This field is replicated across multiple structures!
+    uint64_t secure_user_id;  // user_id from the HAT during enroll. TODO: This field is replicated across multiple structures!
     uint64_t padding7;
 } trustlet_buffer_t;
 
@@ -298,7 +318,18 @@ class EGISAPTrustlet : public QSEETrustlet {
 
     // Extra commands:
     int SetUserDataPath(const char *);
+    int SetAuthToken(API &, const hw_auth_token_t &token);
     int SetAuthToken(const hw_auth_token_t &token);
+    /**
+     * Verifies an authentication token set by SetAuthToken(hat).
+     *
+     * \warning This function can only be used once! After this, the authentication
+     * token must be set again using SetAuthToken(hat).
+     * It is assumed that this function checks if the given token was a valid response
+     * to the last GetChallenge(), clearing it afterwards.
+     *
+     * @return Error code depending on the fields that are invalid.
+     */
     int CheckAuthToken(API &);
     int GetFingerList(std::vector<uint32_t> &);
     int SetSecureUserId(API &, uint64_t);

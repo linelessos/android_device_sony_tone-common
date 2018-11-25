@@ -250,12 +250,14 @@ int EgisOperationLoops::RunCancel(EGISAPTrustlet::API &lockedBuffer) {
 }
 
 void EgisOperationLoops::NotifyError(FingerprintError e) {
+    if ((uint32_t)e >= (uint32_t)FingerprintError::ERROR_VENDOR)
+        // No custom error strings for vendor codes are defined.
+        // Convert every unknown error code to the generic hw_unavailable:
+        e = FingerprintError::ERROR_HW_UNAVAILABLE;
+
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     if (mClientCallback)
-        mClientCallback->onError(
-            mDeviceId,
-            std::min(e, FingerprintError::ERROR_VENDOR),
-            e >= FingerprintError::ERROR_VENDOR ? (int32_t)e : 0);
+        mClientCallback->onError(mDeviceId, e, 0);
 }
 
 void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
@@ -270,6 +272,7 @@ void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
 
 void EgisOperationLoops::NotifyAcquired(FingerprintAcquiredInfo acquiredInfo) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    // Same here: No vendor acquire strings have been defined in an overlay.
     if (mClientCallback)
         mClientCallback->onAcquired(mDeviceId,
                                     std::min(acquiredInfo, FingerprintAcquiredInfo::ACQUIRED_VENDOR),
@@ -444,6 +447,7 @@ void EgisOperationLoops::EnrollAsync() {
 
     // AuthenticatorId is a token associated with the current fp set. It must be
     // changed if the set is altered:
+    // TODO: Dirty buffer seems to cause an error with 0 bytes returned
     mAuthenticatorId = GetRand64(lockedBuffer);
 }
 
@@ -495,11 +499,9 @@ void EgisOperationLoops::AuthenticateAsync() {
 
             if (rc == 0x20) {
                 ALOGD("Authenticate: Match fail");
-                ALOGW("TODO: Restart authentication session!");
             } else if (rc == 0x27) {
                 ALOGD("Authenticate: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
-                ALOGW("TODO: Restart authentication session!");
             } else if (!rc)
                 HandleMainStep(lockedBuffer, cmdOut);
 
@@ -662,37 +664,44 @@ int EgisOperationLoops::Enumerate() {
 }
 
 int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) {
+    auto api = GetLockedAPI();
+    int rc = 0;
+
     if (timeoutSec)
         ALOGW("%s: Timeout of %d ignored", __func__, timeoutSec);
-    int rc = SetAuthToken(hat);
+
+    // TODO: Check if any of the functions in this or the async codepath throw
+    // an error for >5 fingerprints (and are eligible for throwing ERROR_NO_SPACE).
+
+    rc = SetAuthToken(api, hat);
     if (rc) {
         ALOGE("Failed to set auth token, rc = %d", rc);
         goto error;
     }
 
-    // TODO: Check if any of the functions in this or the async codepath throw
-    // an error for >5 fingerprints (and are eligible for throwing ERROR_NO_SPACE).
+    // WARNING: Not clearing the buffer here causes a continuous EGISAPError::InvalidSecureUserId.
+    // Even with a clear buffer this error still occurs incredibly often.
+    // Cause/meaning unknown.
+    memset(&api.GetRequest().extra_buffer, 0, sizeof(api.GetRequest().extra_buffer));
 
-    {
-        auto api = GetLockedAPI();
-
-        rc = SetSecureUserId(api, hat.user_id);
-        if (rc) {
-            ALOGE("Failed to set secure user id, rc = %d", rc);
-            goto error;
-        }
-        mSecureUserId = hat.user_id;
-
-        rc = CheckAuthToken(api);
-        if (rc) {
-            ALOGE("Authtoken check failed, rc = %d", rc);
-            goto error;
-        }
-
-        rc = !MoveToState(AsyncState::Enrolling);
-        if (!rc)
-            return 0;
+    rc = SetSecureUserId(api, hat.user_id);
+    if (rc) {
+        ALOGE("Failed to set secure user id, rc = %d", rc);
+        goto error;
     }
+
+    mSecureUserId = hat.user_id;
+
+    api.MoveResponseToRequest();
+    rc = CheckAuthToken(api);
+    if (rc) {
+        ALOGE("Auth token invalid, rc = %d", rc);
+        goto error;
+    }
+
+    rc = !MoveToState(AsyncState::Enrolling);
+    if (!rc)
+        return 0;
 
 error:
     ALOGD("%s: TODO: Determine meaning of rc = %#x", __func__, rc);
