@@ -75,6 +75,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     // Temporaries for asynchronous operation:
     uint64_t mSecureUserId;
     hw_auth_token_t mCurrentChallenge;
+    int mEnrollTimeout;
 
     // Notify functions:
     void NotifyError(FingerprintError);
@@ -87,7 +88,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     /**
      * Process the next step of the main section of enroll() or authenticate().
      */
-    void HandleMainStep(EGISAPTrustlet::API &, command_buffer_t &);
+    FingerprintError HandleMainStep(EGISAPTrustlet::API &, command_buffer_t &, int timeoutSec = -1);
 
     // These should run asynchronously from HAL calls:
     void EnrollAsync();

@@ -151,29 +151,32 @@ EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec
     dev.EnableInterrupt();
     constexpr auto EVENT_COUNT = 2;
     struct epoll_event events[EVENT_COUNT];
+    ALOGD("%s: TimeoutSec = %d", __func__, timeoutSec);
     int cnt = epoll_wait(epoll_fd, events, EVENT_COUNT, 1000 * timeoutSec);
     dev.DisableInterrupt();
 
     if (cnt < 0) {
-        ALOGE("epoll_wait failed: %s", strerror(errno));
+        ALOGE("%s: epoll_wait failed: %s", __func__, strerror(errno));
         // Let the current operation continue as if nothing happened:
         return WakeupReason::Timeout;
     }
 
-    if (!cnt)
+    if (!cnt) {
+        ALOGD("%s: WakeupReason = Timeout", __func__);
         return WakeupReason::Timeout;
+    }
 
     // Control events have priority over finger events, since
     // this is probably a request to cancel the current operation.
     for (auto ei = 0; ei < cnt; ++ei)
         if (events[ei].data.fd == event_fd && events[ei].events | EPOLLIN) {
-            ALOGV("Waking up due to event");
+            ALOGD("%s: WakeupReason = Event", __func__);
             return WakeupReason::Event;
         }
 
     for (auto ei = 0; ei < cnt; ++ei)
         if (events[ei].data.fd == dev.GetDescriptor() && events[ei].events | EPOLLIN) {
-            ALOGV("Waking up due to finger");
+            ALOGD("%s: WakeupReason = Finger", __func__);
             return WakeupReason::Finger;
         }
 
@@ -319,18 +322,14 @@ void EgisOperationLoops::NotifyBadImage(int reason) {
     NotifyAcquired(acquiredInfo);
 }
 
-void EgisOperationLoops::HandleMainStep(EGISAPTrustlet::API &lockedBuffer, command_buffer_t &cmd) {
+FingerprintError EgisOperationLoops::HandleMainStep(EGISAPTrustlet::API &lockedBuffer, command_buffer_t &cmd, int timeoutSec) {
     switch (cmd.step) {
         case Step::WaitFingerprint: {
-            auto reason = WaitForEvent();
+            auto reason = WaitForEvent(timeoutSec);
             switch (reason) {
                 case WakeupReason::Timeout:
-                    NotifyError(FingerprintError::ERROR_TIMEOUT);
-                    // Assuming this is some magic state that causes the TZ to clean up,
-                    // followed by an exit (assuming the rc == 0x29).
-                    // TODO: That can be tested with an explicit timeout!
-                    cmd.step = Step::ContinueAfterTimeout;
-                    break;
+                    // Return timeout: this notifies the service and stops the current loop.
+                    return FingerprintError::ERROR_TIMEOUT;
                 case WakeupReason::Event:
                     // Nothing to do. The two callers check for a cancel event at the next loop
                     // iteration, which is the only thing that can trigger an event while an
@@ -367,6 +366,7 @@ void EgisOperationLoops::HandleMainStep(EGISAPTrustlet::API &lockedBuffer, comma
             ProcessOpcode(cmd);
             break;
     }
+    return FingerprintError::ERROR_NO_ERROR;
 }
 
 void EgisOperationLoops::EnrollAsync() {
@@ -412,14 +412,20 @@ void EgisOperationLoops::EnrollAsync() {
                 return NotifyError((FingerprintError)rc);
 
             if (rc == 0x29) {
-                ALOGD("Enroll: \"finished\" rc = %d", rc);
-                // TODO: Original code does not notify error here!
-                return NotifyError((FingerprintError)rc);
+                ALOGD("Enroll: failed; rc = %#x", rc);
+                // TODO: Original code does not notify error here. It only prints
+                // a "to do" to the log, after which it continues processing.
+                // NotifyError((FingerprintError)rc);
             } else if (rc == 0x27) {
                 ALOGD("Enroll: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
-            } else if (!rc)
-                HandleMainStep(lockedBuffer, cmdOut);
+            } else if (!rc) {
+                auto fe = HandleMainStep(lockedBuffer, cmdOut, mEnrollTimeout);
+                if (fe != FingerprintError::ERROR_NO_ERROR) {
+                    RunCancel(lockedBuffer);
+                    return NotifyError(fe);
+                }
+            }
 
         } while (cmdOut.step != Step::Done);
 
@@ -507,8 +513,13 @@ void EgisOperationLoops::AuthenticateAsync() {
             } else if (rc == 0x27) {
                 ALOGD("Authenticate: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
-            } else if (!rc)
-                HandleMainStep(lockedBuffer, cmdOut);
+            } else if (!rc) {
+                auto fe = HandleMainStep(lockedBuffer, cmdOut);
+                if (fe != FingerprintError::ERROR_NO_ERROR) {
+                    RunCancel(lockedBuffer);
+                    return NotifyError(fe);
+                }
+            }
 
         } while (cmdOut.step != Step::Done);
 
@@ -672,9 +683,6 @@ int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) 
     auto api = GetLockedAPI();
     int rc = 0;
 
-    if (timeoutSec)
-        ALOGW("%s: Timeout of %d ignored", __func__, timeoutSec);
-
     // TODO: Check if any of the functions in this or the async codepath throw
     // an error for >5 fingerprints (and are eligible for throwing ERROR_NO_SPACE).
 
@@ -696,6 +704,7 @@ int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) 
     }
 
     mSecureUserId = hat.user_id;
+    mEnrollTimeout = timeoutSec;
 
     api.MoveResponseToRequest();
     rc = CheckAuthToken(api);
