@@ -460,7 +460,6 @@ void EgisOperationLoops::EnrollAsync() {
 
     // AuthenticatorId is a token associated with the current fp set. It must be
     // changed if the set is altered:
-    // TODO: Dirty buffer seems to cause an error with 0 bytes returned
     mAuthenticatorId = GetRand64(lockedBuffer);
 }
 

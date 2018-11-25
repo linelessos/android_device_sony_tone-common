@@ -131,6 +131,7 @@ int EGISAPTrustlet::SendExtraCommand(ExtraCommand command) {
 
 uint64_t EGISAPTrustlet::CallFor64BitResponse(EGISAPTrustlet::API &lockedBuffer, ExtraCommand command) {
     const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
+    lockedBuffer.GetRequest().extra_buffer_in_size = 0;
     auto rc = SendExtraCommand(lockedBuffer, command);
     if (rc) {
         // Very unlikely
