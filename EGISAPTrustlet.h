@@ -215,9 +215,14 @@ typedef struct {
 
     uint64_t padding4;
 
-    uint32_t padding5;  // NOTE: This value is set to 0 only for command 6 (SendAuthenticate). TODO: Check if the value is set to something sensible on return.
+    uint32_t padding5;  // NOTE: This value is set to 0 only for command 6 (SendAuthenticate).
     uint32_t padding6;
-    uint64_t secure_user_id;  // user_id from the HAT during enroll. TODO: This field is replicated across multiple structures!
+    /**
+     * user_id from the HAT during enroll.
+     *
+     * \warning This field is replicated across multiple structures.
+     */
+    uint64_t secure_user_id;
     uint64_t padding7;
 } trustlet_buffer_t;
 
@@ -255,23 +260,22 @@ class EGISAPTrustlet : public QSEETrustlet {
         QSEETrustlet::LockedIONBuffer mLockedBuffer;
 
        public:
-        // TODO: Inline or define in cpp!!!
-        API(QSEETrustlet::LockedIONBuffer &&lockedBuffer) : mLockedBuffer(std::move(lockedBuffer)) {
+        inline API(QSEETrustlet::LockedIONBuffer &&lockedBuffer) : mLockedBuffer(std::move(lockedBuffer)) {
         }
 
-        trustlet_buffer_t &GetRequest() {
+        inline trustlet_buffer_t &GetRequest() {
             return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + RequestOffset);
         }
 
-        trustlet_buffer_t &GetResponse() {
+        inline trustlet_buffer_t &GetResponse() {
             return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + ResponseOffset);
         }
 
-        void MoveResponseToRequest() {
+        inline void MoveResponseToRequest() {
             memmove(&GetRequest(), &GetResponse(), sizeof(trustlet_buffer_t));
         }
 
-        static constexpr size_t BufferSize() {
+        inline static constexpr size_t BufferSize() {
             return sizeof(trustlet_buffer_t) + std::max(RequestOffset, ResponseOffset);
         }
 
