@@ -252,8 +252,13 @@ int EgisOperationLoops::RunCancel(EGISAPTrustlet::API &lockedBuffer) {
 void EgisOperationLoops::NotifyError(FingerprintError e) {
     if ((uint32_t)e >= (uint32_t)FingerprintError::ERROR_VENDOR)
         // No custom error strings for vendor codes are defined.
-        // Convert every unknown error code to the generic hw_unavailable:
-        e = FingerprintError::ERROR_HW_UNAVAILABLE;
+        // Convert every unknown error code to the generic unable_to_proces.
+
+        // Do not use HW_UNAVAILABLE here, that causes the FingerprintService
+        // to move on to "the next" HAL (which will loop around to use this HAL again),
+        // but messes up state in the process (for example, receiving a second
+        // authentication request when leaving the menu).
+        e = FingerprintError::ERROR_UNABLE_TO_PROCESS;
 
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     if (mClientCallback)
@@ -705,7 +710,7 @@ int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) 
 
 error:
     ALOGD("%s: TODO: Determine meaning of rc = %#x", __func__, rc);
-    NotifyError(FingerprintError::ERROR_HW_UNAVAILABLE);
+    NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
     return rc;
 }
 
@@ -730,6 +735,6 @@ int EgisOperationLoops::Authenticate(uint64_t challenge) {
 
 error:
     ALOGD("%s: TODO: Determine meaning of rc = %#x", __func__, rc);
-    NotifyError(FingerprintError::ERROR_HW_UNAVAILABLE);
+    NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
     return rc;
 }

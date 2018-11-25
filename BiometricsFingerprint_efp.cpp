@@ -36,7 +36,7 @@ Return<uint64_t> BiometricsFingerprint_efp::setNotify(const sp<IBiometricsFinger
 Return<uint64_t> BiometricsFingerprint_efp::preEnroll() {
     // TODO: Original service aborts+retries on failure.
     auto challenge = loops.GetChallenge();
-    ALOGI("%s: Generated enroll challenge %lu", __func__, challenge);
+    ALOGI("%s: Generated enroll challenge %#lx", __func__, challenge);
     return challenge;
 }
 
@@ -54,7 +54,7 @@ Return<RequestStatus> BiometricsFingerprint_efp::enroll(const hidl_array<uint8_t
         return RequestStatus::SYS_EINVAL;
     }
 
-    ALOGI("Starting enroll for challenge %lu", h->challenge);
+    ALOGI("Starting enroll for challenge %#lx", h->challenge);
     return loops.Enroll(*h, timeoutSec) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
