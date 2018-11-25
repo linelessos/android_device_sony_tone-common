@@ -54,7 +54,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
      * Some return codes indicate a special state which do not imply an error has occured.
      * @return True when an error occured.
      */
-    bool ConvertAndCheckError(int &);
+    bool ConvertAndCheckError(int &, EGISAPTrustlet::API &);
     WakeupReason WaitForEvent(int timeoutSec = -1);
     bool MoveToState(AsyncState);
     AsyncState ReadState();

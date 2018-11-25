@@ -139,11 +139,13 @@ int EgisOperationLoops::ConvertReturnCode(int rc) {
     return -1;
 }
 
-bool EgisOperationLoops::ConvertAndCheckError(int &rc) {
+bool EgisOperationLoops::ConvertAndCheckError(int &rc, EGISAPTrustlet::API &lockedBuffer) {
     if ((rc - 0x27 & ~2) == 0 || (rc & ~0x20 /* 0xffffffdf*/) == 0)
         return false;
 
     rc = ConvertReturnCode(rc);
+    NotifyError((FingerprintError)rc);
+    RunCancel(lockedBuffer);
     return true;
 }
 
@@ -394,8 +396,8 @@ void EgisOperationLoops::EnrollAsync() {
             ALOGD("Enroll: init step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: Check return code, recalibrate on convert()==-6
 
-            if (ConvertAndCheckError(rc))
-                return NotifyError((FingerprintError)rc);
+            if (ConvertAndCheckError(rc, lockedBuffer))
+                return;
 
             ProcessOpcode(cmdOut);
         } while (cmdOut.step != Step::Done);
@@ -408,8 +410,8 @@ void EgisOperationLoops::EnrollAsync() {
             ALOGD("Enroll: step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: if convert(rc) == -9, restart from init_enroll
 
-            if (ConvertAndCheckError(rc))
-                return NotifyError((FingerprintError)rc);
+            if (ConvertAndCheckError(rc, lockedBuffer))
+                return;
 
             if (rc == 0x29) {
                 ALOGD("Enroll: failed; rc = %#x", rc);
@@ -449,8 +451,8 @@ void EgisOperationLoops::EnrollAsync() {
             rc = SendFinalizeEnroll(lockedBuffer);
             ALOGD("Enroll: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
 
-            if (ConvertAndCheckError(rc))
-                return NotifyError((FingerprintError)rc);
+            if (ConvertAndCheckError(rc, lockedBuffer))
+                return;
 
             ProcessOpcode(cmdOut);
         } while (cmdOut.step != Step::Done);
@@ -490,9 +492,9 @@ void EgisOperationLoops::AuthenticateAsync() {
                 return NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
             }
 
-            if (ConvertAndCheckError(rc))
+            if (ConvertAndCheckError(rc, lockedBuffer))
                 // TODO: Handle rc == -6 -> calibrate error.
-                return NotifyError((FingerprintError)rc);
+                return;
 
             ProcessOpcode(cmdOut);
         } while (cmdOut.step != Step::Done);
@@ -505,8 +507,8 @@ void EgisOperationLoops::AuthenticateAsync() {
             ALOGD("Authenticate: step, rc = %d, next step = %d", rc, cmdOut.step);
             // TODO: if convert(rc) == -9, restart from init_enroll
 
-            if (ConvertAndCheckError(rc))
-                return NotifyError((FingerprintError)rc);
+            if (ConvertAndCheckError(rc, lockedBuffer))
+                return;
 
             if (rc == 0x20) {
                 ALOGD("Authenticate: Match fail");
@@ -540,8 +542,8 @@ void EgisOperationLoops::AuthenticateAsync() {
             rc = SendFinalizeAuthenticate(lockedBuffer);
             ALOGD("Authenticate: finalize step, rc = %d, next step = %d", rc, cmdOut.step);
 
-            if (ConvertAndCheckError(rc))
-                return NotifyError((FingerprintError)rc);
+            if (ConvertAndCheckError(rc, lockedBuffer))
+                return;
 
             ProcessOpcode(cmdOut);
         } while (cmdOut.step != Step::Done);
