@@ -510,7 +510,8 @@ void EgisOperationLoops::AuthenticateAsync() {
                 return;
 
             if (rc == 0x20) {
-                ALOGD("Authenticate: Match fail");
+                ALOGD("Authenticate: Finger not recognized");
+                NotifyAuthenticated(0, mCurrentChallenge);
             } else if (rc == 0x27) {
                 ALOGD("Authenticate: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
