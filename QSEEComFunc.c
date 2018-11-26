@@ -30,11 +30,7 @@
 #define QSEE_LIBRARY "libQSEEComAPI.so"
 #endif
 
-#if PLATFORM_SDK_VERSION < 28
-#include <cutils/log.h>
-#else
 #include <log/log.h>
-#endif
 
 //Forward declarations
 
@@ -215,7 +211,6 @@ int32_t qcom_km_ion_memalloc(struct qcom_km_ion_info_t *handle,
 {
     int32_t ret = 0;
     int32_t iret = 0;
-    int32_t fd = 0;
     unsigned char *v_addr;
     struct ion_allocation_data ion_alloc_data;
     int32_t ion_fd;
@@ -349,14 +344,14 @@ int qsee_load_trustlet(struct qsee_handle_t* qsee_handle,
         sz = 1024;
     }
 
-    ALOGE("Starting app %s\n", fname);
+    ALOGI("Starting app %s\n", fname);
     ret = qsee_handle->start_app(clnt_handle, path, fname, sz);
     if (ret < 0) {
         errstr = qsee_error_strings(ret);
         ALOGE("Could not load app %s. Error: %s (%d)\n",
               fname, errstr, ret);
     } else
-        ALOGE("TZ App loaded : %s\n", fname);
+        ALOGI("TZ App loaded: %s\n", fname);
 
     return ret;
 }

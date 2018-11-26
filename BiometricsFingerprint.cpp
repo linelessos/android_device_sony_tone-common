@@ -44,11 +44,12 @@ using RequestStatus =
 BiometricsFingerprint *BiometricsFingerprint::sInstance = nullptr;
 
 BiometricsFingerprint::BiometricsFingerprint() : mClientCallback(nullptr), mDevice(nullptr) {
-    sInstance = this; // keep track of the most recent instance
     mDevice = openHal();
     if (!mDevice) {
         ALOGE("Can't open HAL module");
+        return;
     }
+    sInstance = this; // keep track of the most recent instance
 }
 
 BiometricsFingerprint::~BiometricsFingerprint() {
@@ -320,7 +321,8 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
 
 IBiometricsFingerprint* BiometricsFingerprint::getInstance() {
     if (!sInstance) {
-      sInstance = new BiometricsFingerprint();
+        // The constructor will set sInstance.
+        /*sInstance =*/ new BiometricsFingerprint();
     }
     return sInstance;
 }
@@ -332,6 +334,7 @@ sony_fingerprint_device_t* BiometricsFingerprint::openHal() {
 
     if (fpc_init(&fpc_data) < 0) {
         ALOGE("Could not init FPC device");
+        return nullptr;
     }
 
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*) malloc(sizeof(sony_fingerprint_device_t));
@@ -434,7 +437,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 break;
             case STATE_EXIT:
                 sdev->worker.running_state = STATE_EXIT;
-                ALOGI("%s : AUTH", __func__);
+                ALOGI("%s : EXIT", __func__);
                 thread_running = false;
                 break;
             default:
@@ -487,7 +490,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 ALOGI("%s : Enroll Step", __func__);
                 uint32_t remaining_touches = 0;
                 int ret = fpc_enroll_step(sdev->fpc, &remaining_touches);
-                ALOGE("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
+                ALOGI("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
                 if (ret > 0) {
                     ALOGI("%s : Touches Remaining : %d", __func__, remaining_touches);
                     if (remaining_touches > 0) {
@@ -588,7 +591,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
                         ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
                         ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
                         ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
-                        ALOGI("%s : hat->timestamp %ju", __func__, bswap_64(hat.timestamp));
+                        ALOGI("%s : hat->timestamp %lu", __func__, bswap_64(hat.timestamp));
                         ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
 
                         fid = print_id;

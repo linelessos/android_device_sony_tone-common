@@ -45,9 +45,7 @@ endif
 LOCAL_CFLAGS += \
     -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
     -Wno-missing-field-initializers \
-    -Wno-unused-variable \
-    -Wno-error=extern-c-compat \
-    -Wno-sign-compare
+    -Wno-error=extern-c-compat
 
 include $(BUILD_EXECUTABLE)
 endif

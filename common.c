@@ -7,11 +7,7 @@
 
 #define LOG_TAG "FPC COMMON"
 
-#if PLATFORM_SDK_VERSION < 28
-#include <cutils/log.h>
-#else
 #include <log/log.h>
-#endif
 #include <sys/ioctl.h>
 
 err_t fpc_set_power(int poweron)
@@ -62,7 +58,6 @@ err_t fpc_poll_irq(void)
 {
     int fd, ret = -1;
     uint32_t arg = 0;
-    struct pollfd pfd;
 
     fd = open("/dev/fingerprint", O_RDWR | O_NONBLOCK);
     if (fd < 0) {

@@ -35,11 +35,7 @@
 #define LOG_TAG "FPC IMP"
 //#define LOG_NDEBUG 0
 
-#if PLATFORM_SDK_VERSION < 28
-#include <cutils/log.h>
-#else
 #include <log/log.h>
-#endif
 #include <limits.h>
 
 typedef struct {
@@ -75,7 +71,7 @@ static const char *error_strings[] = {
     "FPC_ERROR_INPUT",
 };
 
-static const uint32_t num_error_strings = sizeof(error_strings) / sizeof(error_strings[0]);
+static const int num_error_strings = sizeof(error_strings) / sizeof(error_strings[0]);
 
 static const char *fpc_error_str(int err)
 {
@@ -304,7 +300,7 @@ err_t fpc_verify_auth_challenge(fpc_imp_data_t *data, void* hat, uint32_t size)
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     int ret = send_buffer_command(ldata, FPC_GROUP_FPCDATA, FPC_AUTHORIZE_ENROL, hat, size);
-    ALOGE("verify auth challenge: %d\n", ret);
+    ALOGI("verify auth challenge: %d\n", ret);
     return ret;
 }
 
@@ -347,7 +343,6 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
     int result=-1;
-    int i;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
 //    while(1)
@@ -390,14 +385,14 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
             ALOGD("fpc_wait_finger_down = 0x%08X", ret);
             if(ret == 1)
             {
-                ALOGE("Finger down, capturing image");
+                ALOGD("Finger down, capturing image");
                 ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
-                ALOGE("Image capture result :%d", ret);
+                ALOGD("Image capture result :%d", ret);
             } else
                 ret = 1001;
-            }
-        } else {
-            ret = 1000;
+        }
+    } else {
+        ret = 1000;
     }
 
     if (fpc_set_power(FPC_PWROFF) < 0) {
@@ -524,7 +519,7 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data, uint32_t __unu
         ALOGE("Error retrieving fingerprints\n");
     }
 
-    ALOGE("Found %d fingerprints\n", cmd.length);
+    ALOGI("Found %d fingerprints\n", cmd.length);
     for(i=0; i<cmd.length; i++)
     {
         idx_data.prints[i] = cmd.fingerprints[i];
@@ -557,7 +552,6 @@ err_t fpc_load_empty_db(fpc_imp_data_t *data) {
 err_t fpc_load_user_db(fpc_imp_data_t *data, char* path)
 {
     int result;
-    struct stat sb;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     ALOGD("Loading user db from %s\n", path);
@@ -646,13 +640,12 @@ err_t fpc_close(fpc_imp_data_t **data)
 
 err_t fpc_init(fpc_imp_data_t **data)
 {
-    int ret=0;
-
     struct QSEECom_handle * mFPC_handle = NULL;
     struct QSEECom_handle * mKeymasterHandle = NULL;
     struct qsee_handle_t* qsee_handle = NULL;
+    int result = -1;
 
-    ALOGE("INIT FPC TZ APP\n");
+    ALOGI("INIT FPC TZ APP\n");
     if(qsee_open_handle(&qsee_handle) != 0) {
         ALOGE("Error loading QSEECom library");
         goto err;
@@ -666,19 +659,19 @@ err_t fpc_init(fpc_imp_data_t **data)
     fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
     fpc_data->auth_id = 0;
 
-    ALOGE("Starting app %s\n", KM_TZAPP_NAME);
+    ALOGI("Starting app %s\n", KM_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_ALT_PATH, KM_TZAPP_NAME, 1024) < 0) {
         if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_NAME, 1024) < 0) {
             if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_ALT_NAME, 1024) < 0) {
                  ALOGE("Could not load app %s or %s\n", KM_TZAPP_NAME, KM_TZAPP_ALT_NAME);
-            goto err_alloc;
+                goto err_alloc;
             }
         }
     }
     fpc_data->qsee_handle = qsee_handle;
 
 
-    ALOGE("Starting app %s\n", FP_TZAPP_NAME);
+    ALOGI("Starting app %s\n", FP_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mFPC_handle, FP_TZAPP_PATH, FP_TZAPP_NAME, 128) < 0) {
         ALOGE("Could not load app : %s\n", FP_TZAPP_NAME);
         goto err_keymaster;
@@ -706,9 +699,9 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     keymaster_return_t* ret_data = (keymaster_return_t*) rec_buf;
 
-    ALOGE("Keymaster Response Code : %u\n", ret_data->status);
-    ALOGE("Keymaster Response Length : %u\n", ret_data->length);
-    ALOGE("Keymaster Response Offset: %u\n", ret_data->offset);
+    ALOGI("Keymaster Response Code : %u\n", ret_data->status);
+    ALOGI("Keymaster Response Length : %u\n", ret_data->length);
+    ALOGI("Keymaster Response Offset: %u\n", ret_data->offset);
 
     void * data_buff = &rec_buf[ret_data->offset];
 
@@ -722,14 +715,16 @@ err_t fpc_init(fpc_imp_data_t **data)
     fpc_data->ihandle.ion_fd = 0;
     if (fpc_data->qsee_handle->ion_alloc(&fpc_data->ihandle, 0x40) < 0) {
         ALOGE("ION allocation failed");
-        goto err_keymaster;
+        goto err_alloc;
     }
 
-    int result = send_buffer_command(fpc_data, FPC_GROUP_FPCDATA, FPC_SET_KEY_DATA, keydata, keylength);
+    result = send_buffer_command(fpc_data, FPC_GROUP_FPCDATA, FPC_SET_KEY_DATA, keydata, keylength);
+
+    free(keydata);
 
     ALOGD("FPC_SET_KEY_DATA Result: %d\n", result);
     if(result != 0)
-        return result;
+        goto err_alloc;
 
     fpc_deep_sleep((fpc_imp_data_t*)fpc_data);
 
@@ -753,5 +748,5 @@ err_alloc:
 err_qsee:
     qsee_free_handle(&qsee_handle);
 err:
-    return -1;
+    return result;
 }

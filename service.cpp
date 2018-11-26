@@ -23,22 +23,29 @@
 #include <android/hardware/biometrics/fingerprint/2.1/types.h>
 #include "BiometricsFingerprint.h"
 
-using android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
-using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint;
+using android::sp;
+using android::status_t;
+using android::NO_ERROR;
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
-using android::sp;
+using android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
+using android::hardware::biometrics::fingerprint::V2_1::implementation::
+    BiometricsFingerprint;
 
 int main() {
-    int ret = 0;
     android::sp<IBiometricsFingerprint> bio = BiometricsFingerprint::getInstance();
 
     configureRpcThreadpool(1, true /*callerWillJoin*/);
 
     if (bio != nullptr) {
-        ret = bio->registerAsService();
+        status_t status = bio->registerAsService();
+        if (status != NO_ERROR) {
+            ALOGE("Cannot start fingerprint service: %d", status);
+            return 1;
+        }
     } else {
         ALOGE("Can't create instance of BiometricsFingerprint, nullptr");
+        return 1;
     }
 
     joinRpcThreadpool();
