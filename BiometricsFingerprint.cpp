@@ -117,17 +117,8 @@ Return<RequestStatus> BiometricsFingerprint::enroll(const hidl_array<uint8_t, 69
 
     fpc_verify_auth_challenge(sdev->fpc, (void*) authToken, sizeof(hw_auth_token_t));
 
-    if (!setState(sdev, STATE_ENROLL)){
-        ALOGW("%s : Thread already in enroll state",__func__);
-    }
-
-    while (isChangeWaiting(mDevice)){
-        ALOGI("%s : wait for enrol state",__func__);
-        usleep(1000);
-        setState(sdev, STATE_ENROLL); //Will only update state of we are not yet running in that state
-    }
-
-    return ErrorFilter(0);
+    bool success = setState(sdev, STATE_ENROLL);
+    return success ? RequestStatus::SYS_OK : RequestStatus::SYS_EAGAIN;
 }
 
 Return<RequestStatus> BiometricsFingerprint::postEnroll() {
@@ -147,33 +138,18 @@ Return<uint64_t> BiometricsFingerprint::getAuthenticatorId() {
 
 Return<RequestStatus> BiometricsFingerprint::cancel() {
 
-    ALOGI("%s : +",__func__);
-    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
+    ALOGI("%s",__func__);
 
     sony_fingerprint_device_t *sdev = mDevice;
 
-    if (!setState(sdev, STATE_CANCEL)) {
-        ALOGW("%s : Thread already in idle state",__func__);
-    } else {
-        ALOGI("%s : set idle state",__func__);
+    if (setState(sdev, STATE_CANCEL)) {
+        // NOTE: In it's current form, setState will never fail for CANCEL.
+        ALOGI("%s : Successfully moved to cancel state", __func__);
+        return RequestStatus::SYS_OK;
     }
 
-    while (isChangeWaiting(mDevice)){
-        ALOGI("%s : wait for idle state",__func__);
-        usleep(1000);
-        setState(sdev, STATE_CANCEL); //Will only update state of we are not yet running in that state
-    }
-
-    ALOGI("%s : -",__func__);
-
-    if (mClientCallback == nullptr) {
-        ALOGE("Client callback not set");
-        return ErrorFilter(-1);
-    }
-
-    mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
-
-    return ErrorFilter(0);
+    ALOGE("%s : Failed to move to cancel state", __func__);
+    return RequestStatus::SYS_UNKNOWN;
 }
 
 Return<RequestStatus> BiometricsFingerprint::enumerate()  {
@@ -303,17 +279,8 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
         return RequestStatus::SYS_EAGAIN;
     }
 
-    if (!setState(sdev, STATE_AUTH)){
-        ALOGW("%s : Thread already in auth state",__func__);
-    }
-
-    while (isChangeWaiting(mDevice)){
-        ALOGI("%s : wait for auth state",__func__);
-        usleep(1000);
-        setState(sdev, STATE_AUTH); //Will only update state of we are not yet running in that state
-    }
-
-    return RequestStatus::SYS_OK;
+    bool success = setState(sdev, STATE_AUTH);
+    return success ? RequestStatus::SYS_OK : RequestStatus::SYS_EAGAIN;
 }
 
 IBiometricsFingerprint* BiometricsFingerprint::getInstance() {
@@ -371,6 +338,21 @@ enum worker_state BiometricsFingerprint::getNextState(sony_fingerprint_device_t*
     return state;
 }
 
+bool BiometricsFingerprint::isCanceled(sony_fingerprint_device_t *sdev) {
+    enum worker_state state = getNextState(sdev);
+
+    if (state == STATE_CANCEL)
+    {
+        ALOGI("%s : Operation canceled", __func__);
+        return true;
+    }
+
+    if (state != STATE_IDLE)
+        ALOGW("%s : Unexpected state %d", __func__, state);
+
+    return false;
+}
+
 bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worker_state state) {
     enum worker_state current_state = sdev->worker.running_state;
 
@@ -382,29 +364,15 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
 
     if (sdev->worker.running_state == state) {
         ALOGW("%s : Already running in state = %d", __func__, state);
-        return false;
+        // Still okay - this is a very unlikely sitation.
+        return true;
     }
 
     ALOGD("%s : Setting state to = %d", __func__, state);
-    eventfd_write(sdev->worker.event_fd, state);
-    return true;
-}
-
-bool BiometricsFingerprint::isChangeWaiting(sony_fingerprint_device_t* sdev) {
-    return false;
-
-    // worker_state running = sdev->worker.running_state;
-    // worker_state target = sdev->state;
-
-    // ALOGI("%s : RUN STATE : %d || TARGET STATE : %d", __func__, running, target);
-
-    // if (running == target){
-    //     ALOGI("%s : Waiting for state machine to update to target state", __func__);
-    //     return false;
-    // } else {
-    //     ALOGI("%s : State machine in target state", __func__);
-    //     return true;
-    // }
+    int rc = eventfd_write(sdev->worker.event_fd, state);
+    if (rc)
+        ALOGE("%s : Failed to write state to eventfd: %d", __func__, rc);
+    return !rc;
 }
 
 void * BiometricsFingerprint::worker_thread(void *args){
@@ -424,7 +392,6 @@ void * BiometricsFingerprint::worker_thread(void *args){
 
         switch (getNextState(sdev)) {
             case STATE_IDLE:
-                sdev->worker.running_state = STATE_IDLE;
                 ALOGI("%s : IDLE", __func__);
                 break;
             case STATE_ENROLL:
@@ -444,7 +411,6 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 break;
             case STATE_CANCEL:
                 ALOGW("%s : Unexpected STATE_CANCEL", __func__);
-                sdev->worker.running_state = STATE_IDLE;
                 break;
             default:
                 ALOGI("%s : UNKNOWN", __func__);
@@ -475,7 +441,7 @@ void * BiometricsFingerprint::worker_thread(void *args){
         int ret = fpc_enroll_start(sdev->fpc, print_count);
         if(ret < 0)
         {
-            ALOGE("Starting enrol failed: %d\n", ret);
+            ALOGE("Starting enroll failed: %d\n", ret);
         }
 
         int status = 1;
@@ -483,7 +449,8 @@ void * BiometricsFingerprint::worker_thread(void *args){
         while((status = fpc_capture_image(sdev->fpc)) >= 0) {
             ALOGD("%s : Got Input status=%d", __func__, status);
 
-            if (getNextState(sdev) == STATE_CANCEL) {
+            if (isCanceled(sdev)) {
+                thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
                 break;
             }
 
@@ -552,7 +519,8 @@ void * BiometricsFingerprint::worker_thread(void *args){
         while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
             ALOGV("%s : Got Input with status %d", __func__, status);
 
-            if (getNextState(sdev) == STATE_CANCEL) {
+            if (isCanceled(sdev)) {
+                thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
                 break;
             }
 
