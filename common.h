@@ -21,7 +21,5 @@ typedef int32_t err_t;
 err_t fpc_set_power(int poweron);
 err_t fpc_get_power(void);
 err_t fpc_poll_irq(void);
-err_t sysfs_write(char *path, char *s);
-err_t sys_fs_irq_poll(char *path);
 
 #endif //FINGERPRINT_COMMON_H
