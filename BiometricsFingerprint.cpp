@@ -179,31 +179,28 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 Return<RequestStatus> BiometricsFingerprint::enumerate()  {
 
     const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
-
+    if (!mClientCallback) {
+        ALOGE("Client callback not set");
+        return RequestStatus::SYS_EFAULT;
+    }
 
     ALOGV(__func__);
     sony_fingerprint_device_t *sdev = mDevice;
 
-    uint32_t print_count = fpc_get_print_count(sdev->fpc);
-    ALOGD("%s : print count is : %u", __func__, print_count);
+    fpc_fingerprint_index_t print_indexs = fpc_get_print_index(sdev->fpc);
 
-    fpc_fingerprint_index_t print_indexs = fpc_get_print_index(sdev->fpc, print_count);
-    if(print_indexs.print_count != print_count)
-    {
-        ALOGW("Print count mismatch: %d != %d", print_count, print_indexs.print_count);
-    }
+    if (!print_indexs.print_count)
+        // When there are no fingers, the service still needs to know that (potentially async)
+        // enumeration has finished. By convention, send fid=0 and remaining=0 to signal this:
+        mClientCallback->onEnumerate(devId, 0, mDevice->gid, 0);
+    else
+        for (size_t i = 0; i < print_indexs.print_count; i++) {
+            ALOGD("%s : found print : %lu at index %zu", __func__, (unsigned long) print_indexs.prints[i], i);
 
-    for (size_t i = 0; i < print_indexs.print_count; i++) {
-        ALOGD("%s : found print : %lu at index %zu", __func__, (unsigned long) print_indexs.prints[i], i);
+            uint32_t  remaining_templates = (uint32_t)(print_indexs.print_count - i - 1);
 
-        uint32_t  remaining_templates = (uint32_t)(print_indexs.print_count - i - 1);
-
-        if (mClientCallback != nullptr) {
             mClientCallback->onEnumerate(devId, print_indexs.prints[i], mDevice->gid, remaining_templates);
-        } else {
-            ALOGE("Client callback not set");
         }
-    }
 
     return ErrorFilter(0);
 }
@@ -451,9 +448,9 @@ void * BiometricsFingerprint::worker_thread(void *args){
 }
 
     void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
-
-        int32_t print_count = fpc_get_print_count(sdev->fpc);
-        ALOGD("%s : print count is : %u", __func__, print_count);
+        // WARNING: Not implemented on any platform
+        int32_t print_count = 0;
+        // ALOGD("%s : print count is : %u", __func__, print_count);
 
         BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
                 BiometricsFingerprint::getInstance());
