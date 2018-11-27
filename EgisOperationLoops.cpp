@@ -150,12 +150,10 @@ bool EgisOperationLoops::ConvertAndCheckError(int &rc, EGISAPTrustlet::API &lock
 }
 
 EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec) {
-    dev.EnableInterrupt();
     constexpr auto EVENT_COUNT = 2;
     struct epoll_event events[EVENT_COUNT];
     ALOGD("%s: TimeoutSec = %d", __func__, timeoutSec);
     int cnt = epoll_wait(epoll_fd, events, EVENT_COUNT, 1000 * timeoutSec);
-    dev.DisableInterrupt();
 
     if (cnt < 0) {
         ALOGE("%s: epoll_wait failed: %s", __func__, strerror(errno));
@@ -372,6 +370,7 @@ FingerprintError EgisOperationLoops::HandleMainStep(command_buffer_t &cmd, int t
 }
 
 void EgisOperationLoops::EnrollAsync() {
+    DeviceEnableGuard<EgisFpDevice> guard{dev};
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
@@ -464,6 +463,7 @@ void EgisOperationLoops::EnrollAsync() {
 }
 
 void EgisOperationLoops::AuthenticateAsync() {
+    DeviceEnableGuard<EgisFpDevice> guard{dev};
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
@@ -633,6 +633,8 @@ int EgisOperationLoops::RemoveFinger(uint32_t fid) {
 }
 
 int EgisOperationLoops::Prepare() {
+    DeviceEnableGuard<EgisFpDevice> guard{dev};
+    int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdIn = lockedBuffer.GetRequest().command_buffer;
     const auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
@@ -641,20 +643,23 @@ int EgisOperationLoops::Prepare() {
 
     // Process step until it is 0 (meaning done):
     for (;;) {
-        int rc = SendPrepare(lockedBuffer);
+        rc = SendPrepare(lockedBuffer);
+        // 0x26, or -7 after conversion happens when the hardware is turned off.
+
         rc = ConvertReturnCode(rc);
         ALOGD("Prepare rc = %d, next step = %d", rc, cmdOut.step);
-        if (rc) return rc;
+        if (rc)
+            break;
 
         ProcessOpcode(cmdOut);
 
         if (cmdOut.step == Step::Done)
             // Preparation complete
-            return 0;
+            break;
 
         lockedBuffer.MoveResponseToRequest();
     }
-    return -1;
+    return rc;
 }
 
 bool EgisOperationLoops::Cancel() {

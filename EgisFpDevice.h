@@ -1,11 +1,21 @@
 #pragma once
 
-class EgisFpDevice {
-    static constexpr auto DEV_PATH = "/dev/esfp0";
+#include <sys/ioctl.h>
 
-    static constexpr auto IOC_SENSOR_RESET = 4;
-    static constexpr auto IOC_INTERRUPT_TRIGGER_INIT = 0xa4;
-    static constexpr auto IOC_INTERRUPT_TRIGGER_CLOSE = 0xa5;
+#define ET51X_IOC_MAGIC 0x1145
+#define ET51X_IOC_R_BASE 0x80
+#define ET51X_IOCWPREPARE _IOW(ET51X_IOC_MAGIC, 0x01, int)
+#define ET51X_IOCWDEVWAKE _IOW(ET51X_IOC_MAGIC, 0x02, int)
+#define ET51X_IOCWRESET _IOW(ET51X_IOC_MAGIC, 0x03, int)
+#define ET51X_IOCWAWAKE _IOW(ET51X_IOC_MAGIC, 0x04, int)
+#define ET51X_IOCRPREPARE _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x01, int)
+#define ET51X_IOCRDEVWAKE _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x02, int)
+#define ET51X_IOCRIRQ _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x03, int)
+#define ET51X_IOCRIRQPOLL _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x04, int)
+#define ET51X_IOCRHWTYPE _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x05, int)
+
+class EgisFpDevice {
+    static constexpr auto DEV_PATH = "/dev/fingerprint";
 
     int mFd = 0;
 
@@ -13,9 +23,34 @@ class EgisFpDevice {
     EgisFpDevice();
     ~EgisFpDevice();
 
-    int Reset();
-    int EnableInterrupt();
-    int DisableInterrupt();
-    bool WaitInterrupt(int timeout = -1);
+    int Reset() const;
+    /**
+     * Turn on power to the hardware.
+     */
+    int Enable() const;
+    /**
+     * Disable hardware by removing power.
+     */
+    int Disable() const;
+    bool WaitInterrupt(int timeout = -1) const;
     int GetDescriptor() const;
+};
+
+/**
+ * Automatically enable and disable the device based on the
+ * lifetime (and thus scope) of this object.
+ */
+template <typename T>
+struct DeviceEnableGuard {
+    const T &object;
+    DeviceEnableGuard(const T &t) : object(t) {
+        object.Enable();
+    }
+
+    ~DeviceEnableGuard() {
+        object.Disable();
+    }
+
+    DeviceEnableGuard(DeviceEnableGuard &) = delete;
+    DeviceEnableGuard &operator=(DeviceEnableGuard &) = delete;
 };

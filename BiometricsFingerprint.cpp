@@ -17,6 +17,7 @@
 #define LOG_TAG "AOSP FPC HAL (Binder)"
 #define LOG_VERBOSE "AOSP FPC HAL (Binder)"
 
+#include <arpa/inet.h>
 #include <hardware/hw_auth_token.h>
 
 #include <hardware/hardware.h>
