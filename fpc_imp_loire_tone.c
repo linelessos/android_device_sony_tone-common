@@ -344,9 +344,10 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
         if(result)
             return result;
 
-        if((result = fpc_poll_irq()) == -1) {
-                ALOGV("Error waiting for irq: %d\n", result);
-                return -1;
+        result = fpc_poll_event(&data->event);
+
+        if(result != FPC_EVENT_FINGER) {
+            return -1;
         }
 
         result = send_normal_command(ldata, FPC_GET_FINGER_STATUS);
@@ -369,8 +370,8 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    if (fpc_set_power(FPC_PWRON) < 0) {
-        ALOGE("Error starting device\n");
+    if (fpc_set_power(&data->event, FPC_PWRON) < 0) {
+        ALOGE("Error starting device");
         return -1;
     }
 
@@ -381,17 +382,17 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         ret = fpc_wait_finger_down(data);
         if(!ret)
         {
-            ALOGD("Finger down, capturing image\n");
+            ALOGD("Finger down, capturing image");
             ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
-            ALOGD("Image capture result :%d\n", ret);
+            ALOGD("Image capture result: %d", ret);
         } else
             ret = 1001;
     } else {
         ret = 1000;
     }
 
-    if (fpc_set_power(FPC_PWROFF) < 0) {
-        ALOGE("Error stopping device\n");
+    if (fpc_set_power(&data->event, FPC_PWROFF) < 0) {
+        ALOGE("Error stopping device");
         return -1;
     }
 
@@ -597,7 +598,7 @@ err_t fpc_close(fpc_imp_data_t **data)
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
-    if (fpc_set_power(FPC_PWROFF) < 0) {
+    if (fpc_set_power(&(*data)->event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         return -1;
     }
@@ -607,7 +608,7 @@ err_t fpc_close(fpc_imp_data_t **data)
     return 1;
 }
 
-err_t fpc_init(fpc_imp_data_t **data)
+err_t fpc_init(fpc_imp_data_t **data, int event_fd)
 {
     int ret=0;
 
@@ -621,13 +622,15 @@ err_t fpc_init(fpc_imp_data_t **data)
         goto err;
     }
 
-    if (fpc_set_power(FPC_PWRON) < 0) {
+    fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
+    fpc_data->auth_id = 0;
+
+    fpc_event_create(&fpc_data->data.event, event_fd);
+
+    if (fpc_set_power(&fpc_data->data.event, FPC_PWRON) < 0) {
         ALOGE("Error starting device\n");
         goto err_qsee;
     }
-
-    fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
-    fpc_data->auth_id = 0;
 
     ALOGI("Starting app %s\n", KM_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_PATH, KM_TZAPP_NAME, 1024) < 0) {
@@ -692,7 +695,7 @@ err_t fpc_init(fpc_imp_data_t **data)
     if(result != 0)
         return result;
 
-    if (fpc_set_power(FPC_PWROFF) < 0) {
+    if (fpc_set_power(&fpc_data->data.event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         goto err_alloc;
     }

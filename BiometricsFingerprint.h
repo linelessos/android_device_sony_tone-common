@@ -53,10 +53,11 @@ using ::android::hardware::hidl_string;
 using ::android::sp;
 
 enum worker_state {
-    STATE_IDLE,
+    STATE_IDLE = 0,
     STATE_ENROLL,
     STATE_AUTH,
-    STATE_EXIT
+    STATE_EXIT,
+    STATE_CANCEL,
 };
 
 
@@ -76,7 +77,6 @@ typedef struct {
     char db_path[255];
     pthread_mutex_t lock;
     uint64_t challenge;
-    enum worker_state state;
 } sony_fingerprint_device_t;
 
 struct BiometricsFingerprint : public IBiometricsFingerprint {
@@ -109,7 +109,7 @@ private:
 
     //Auth / Enroll thread functions
     static void * worker_thread(void *args);
-    static enum worker_state getState(sony_fingerprint_device_t* sdev);
+    static enum worker_state getNextState(sony_fingerprint_device_t* sdev);
     static bool setState(sony_fingerprint_device_t* sdev, enum worker_state state);
     static bool isChangeWaiting(sony_fingerprint_device_t* sdev);
     static void process_enroll(sony_fingerprint_device_t *sdev);

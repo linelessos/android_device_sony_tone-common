@@ -4,49 +4,95 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/ioctl.h>
+#if PLATFORM_SDK_VERSION >= 28
+#include <bits/epoll_event.h>
+#endif
+#include <sys/epoll.h>
 
 #define LOG_TAG "FPC COMMON"
 
 #include <log/log.h>
-#include <sys/ioctl.h>
 
-err_t fpc_set_power(int poweron)
-{
-    int fd, ret = -1;
+#define EVENT_COUNT 2
+
+err_t fpc_event_create(fpc_event_t *event, int event_fd) {
+    int fd = 0, rc;
+
+    event->event_fd = event_fd;
 
     fd = open("/dev/fingerprint", O_RDWR);
     if (fd < 0) {
-        ALOGE("Error opening FPC device\n");
+        ALOGE("Error opening FPC device");
         return -1;
     }
-    ret = ioctl(fd, FPC_IOCWPREPARE, poweron);
+    event->dev_fd = fd;
+
+    fd = epoll_create1(0);
+    if (fd < 0) {
+        ALOGE("Error creating epoll fd");
+        return -1;
+    }
+    event->epoll_fd = fd;
+
+    {
+        struct epoll_event ev = {
+            .data.fd = event_fd,
+            .events = EPOLLIN,
+        };
+        rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
+        if (rc) {
+            ALOGE("Failed to add event_fd to epoll: %d", rc);
+            return -1;
+        }
+    }
+    {
+        struct epoll_event ev = {
+            .data.fd = event->dev_fd,
+            .events = EPOLLIN,
+        };
+        rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
+        if (rc) {
+            ALOGE("Failed to add event->dev_fd to epoll: %d", rc);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+err_t fpc_event_destroy(fpc_event_t *event) {
+    event->event_fd = -1;
+    close(event->dev_fd);
+    event->dev_fd = -1;
+    close(event->epoll_fd);
+    event->epoll_fd = -1;
+    return 0;
+}
+
+err_t fpc_set_power(const fpc_event_t *event, int poweron)
+{
+    int ret = -1;
+
+    ret = ioctl(event->dev_fd, FPC_IOCWPREPARE, poweron);
     if (ret < 0) {
         ALOGE("Error preparing FPC device\n");
-        close(fd);
         return -1;
     }
-    close(fd);
 
     return 1;
 }
 
-err_t fpc_get_power(void)
+err_t fpc_get_power(const fpc_event_t *event)
 {
-    int fd, ret = -1;
+    int ret = -1;
     uint32_t reply = -1;
 
-    fd = open("/dev/fingerprint", O_RDWR);
-    if (fd < 0) {
-        ALOGE("Error opening FPC device\n");
-        return -1;
-    }
-    ret = ioctl(fd, FPC_IOCRPREPARE, &reply);
+    ret = ioctl(event->dev_fd, FPC_IOCRPREPARE, &reply);
     if (ret < 0) {
         ALOGE("Error preparing FPC device\n");
-        close(fd);
         return -1;
     }
-    close(fd);
 
     if (reply > 1)
         return -1;
@@ -54,30 +100,32 @@ err_t fpc_get_power(void)
     return reply;
 }
 
-err_t fpc_poll_irq(void)
+err_t fpc_poll_event(const fpc_event_t *event)
 {
-    int fd, ret = -1;
-    uint32_t arg = 0;
+    int cnt;
 
-    fd = open("/dev/fingerprint", O_RDWR | O_NONBLOCK);
-    if (fd < 0) {
-        ALOGE("Error opening FPC device\n");
-        return -1;
+    struct epoll_event events[EVENT_COUNT];
+    cnt = epoll_wait(event->epoll_fd, events, EVENT_COUNT, -1);
+
+    if (cnt < 0)
+    {
+        ALOGE("Failed waiting for epoll: %d", cnt);
+        return FPC_EVENT_ERROR;
     }
 
-    ret = ioctl(fd, FPC_IOCRIRQPOLL, &arg);
-    if (ret < 0) {
-        ALOGE("Error polling FPC device\n");
-        close(fd);
-        return -1;
+    if (!cnt) {
+        ALOGE("Epoll timed out despite infinite blocking!");
+        return FPC_EVENT_TIMEOUT;
     }
-    close(fd);
 
-    ALOGV("Interrupt status: %d\n", arg);
+    for (int i = 0; i < cnt; ++i)
+        if (events[i].data.fd == event->event_fd && events[i].events | EPOLLIN)
+        {
+            ALOGD("Waking up from eventfd");
+            return FPC_EVENT_EVENTFD;
+        }
 
-    /* 0 means that the interrupt didn't fire */
-    if (arg == 0)
-        return -1;
-
-    return (err_t)arg;
+    // Only other event source is the fingerprint.
+    ALOGD("Waking up from finger event");
+    return FPC_EVENT_FINGER;
 }

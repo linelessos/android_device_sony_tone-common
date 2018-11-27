@@ -17,9 +17,25 @@ enum {
     FPC_PWRON = 1,
 };
 
+enum {
+    FPC_EVENT_FINGER,
+    FPC_EVENT_EVENTFD,
+    FPC_EVENT_TIMEOUT,
+    FPC_EVENT_ERROR,
+};
+
+typedef struct {
+    int epoll_fd;
+    int dev_fd;
+    int event_fd;
+} fpc_event_t;
+
 typedef int32_t err_t;
-err_t fpc_set_power(int poweron);
-err_t fpc_get_power(void);
-err_t fpc_poll_irq(void);
+
+err_t fpc_event_create(fpc_event_t *, int event_fd);
+err_t fpc_event_destroy(fpc_event_t *);
+err_t fpc_set_power(const fpc_event_t *, int poweron);
+err_t fpc_get_power(const fpc_event_t *);
+err_t fpc_poll_event(const fpc_event_t *);
 
 #endif //FINGERPRINT_COMMON_H
