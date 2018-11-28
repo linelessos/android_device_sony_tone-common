@@ -179,7 +179,7 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 Return<RequestStatus> BiometricsFingerprint::enumerate()  {
 
     const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
-    if (!mClientCallback) {
+    if (mClientCallback == nullptr) {
         ALOGE("Client callback not set");
         return RequestStatus::SYS_EFAULT;
     }
