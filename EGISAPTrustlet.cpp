@@ -3,7 +3,7 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
-#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #include <log/log.h>
 
 void log_hex(const char *data, int length) {
