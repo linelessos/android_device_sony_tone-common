@@ -460,9 +460,10 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 break;
             }
 
-            if (status <= FINGERPRINT_ACQUIRED_TOO_FAST) {
-                thisPtr->mClientCallback->onAcquired(devId, FingerprintAcquiredInfo::ACQUIRED_GOOD, status);
-            }
+            FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
+
+            if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
+                thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
 
             //image captured
             if (status == FINGERPRINT_ACQUIRED_GOOD) {
@@ -539,12 +540,10 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 break;
             }
 
-            if(status >= 1000)
-                continue;
+            FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
 
-            if (status <= FINGERPRINT_ACQUIRED_TOO_FAST) {
-                thisPtr->mClientCallback->onAcquired(devId, FingerprintAcquiredInfo::ACQUIRED_GOOD, status);
-            }
+            if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
+                thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
 
             if (status == FINGERPRINT_ACQUIRED_GOOD) {
 
