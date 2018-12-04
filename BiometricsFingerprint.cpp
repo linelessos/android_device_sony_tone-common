@@ -438,6 +438,12 @@ void * BiometricsFingerprint::worker_thread(void *args){
             return;
         }
 
+        if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
+            ALOGE("Error starting device");
+            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+            return;
+        }
+
         int ret = fpc_enroll_start(sdev->fpc, print_count);
         if(ret < 0)
         {
@@ -496,6 +502,9 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 }
             }
         }
+
+        if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
+            ALOGE("Error stopping device");
     }
 
 
@@ -511,6 +520,12 @@ void * BiometricsFingerprint::worker_thread(void *args){
         std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
         if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
             ALOGE("Receiving callbacks before the client callback is registered.");
+            return;
+        }
+
+        if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
+            ALOGE("Error starting device");
+            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
             return;
         }
 
@@ -594,6 +609,9 @@ void * BiometricsFingerprint::worker_thread(void *args){
                 }
             }
         }
+
+        if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
+            ALOGE("Error stopping device");
     }
 
 } // namespace implementation

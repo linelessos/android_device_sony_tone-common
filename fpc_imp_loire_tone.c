@@ -370,11 +370,6 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    if (fpc_set_power(&data->event, FPC_PWRON) < 0) {
-        ALOGE("Error starting device");
-        return -1;
-    }
-
     int ret = fpc_wait_finger_lost(data);
     if(!ret)
     {
@@ -389,11 +384,6 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
             ret = 1001;
     } else {
         ret = 1000;
-    }
-
-    if (fpc_set_power(&data->event, FPC_PWROFF) < 0) {
-        ALOGE("Error stopping device");
-        return -1;
     }
 
     return ret;
