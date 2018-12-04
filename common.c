@@ -129,3 +129,14 @@ err_t fpc_poll_event(const fpc_event_t *event)
     ALOGD("Waking up from finger event");
     return FPC_EVENT_FINGER;
 }
+
+err_t fpc_keep_awake(const fpc_event_t *event, int awake, unsigned int timeout) {
+    struct {
+        int awake;
+        unsigned int timeout;
+    } args = {awake, timeout};
+    int rc = ioctl(event->dev_fd, FPC_IOCWAWAKE, &args);
+    if (rc)
+        ALOGE("%s failed: %d", __func__, rc);
+    return rc;
+}

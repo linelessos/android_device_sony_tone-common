@@ -386,6 +386,13 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         }
     } else {
         ret = 1000;
+
+        // Extend the wakelock to prevent going to sleep before entering
+        // a polling state again, which causes the sensor/hal to not
+        // respond to any finger touches during deep sleep.
+        fpc_keep_awake(&data->event, 1, 40);
+        // Wait 20ms before checking if the finger is lost again.
+        usleep(20000);
     }
 
     return ret;
