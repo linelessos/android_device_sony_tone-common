@@ -399,7 +399,6 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
         return -1;
     }
 
-    //send_normal_command(ldata, FPC_INIT);
     return ret;
 }
 
