@@ -350,15 +350,7 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
             return -1;
         }
 
-        result = send_normal_command(ldata, FPC_GET_FINGER_STATUS);
-        if(result < 0)
-        {
-            ALOGE("Get finger status failed: %d\n", result);
-            return result;
-        }
-        ALOGD("Finger status: %d\n", result);
-        if(result)
-            return 0;
+        return 0;
     }
     return -1;
 }
