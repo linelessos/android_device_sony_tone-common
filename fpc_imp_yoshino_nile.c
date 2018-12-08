@@ -342,21 +342,19 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
-    int result=-1;
+    int result = -1;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-//    while(1)
-    {
-        result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_DOWN);
-        ALOGE_IF(result, "Wait finger down result: %d\n", result);
-        if(result)
-            return result;
+    result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_DOWN);
+    ALOGE_IF(result, "Wait finger down result: %d", result);
+    if(result)
+        return result;
 
-        result = fpc_poll_event(&data->event);
+    result = fpc_poll_event(&data->event);
 
-        if(result == FPC_EVENT_FINGER)
-            return 1;
-    }
+    if(result == FPC_EVENT_FINGER)
+        return 0;
+
     return -1;
 }
 
@@ -368,22 +366,19 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     int ret = fpc_wait_finger_lost(data);
-    ALOGD("fpc_wait_finger_lost = 0x%08X", ret);
+    ALOGV("fpc_wait_finger_lost = 0x%08X", ret);
     if(!ret)
     {
-//        while(1)
+        ALOGV("Finger lost as expected");
+        ret = fpc_wait_finger_down(data);
+        ALOGV("fpc_wait_finger_down = 0x%08X", ret);
+        if(!ret)
         {
-            ALOGD("Finger lost as expected");
-            ret = fpc_wait_finger_down(data);
-            ALOGD("fpc_wait_finger_down = 0x%08X", ret);
-            if(ret == 1)
-            {
-                ALOGD("Finger down, capturing image");
-                ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
-                ALOGD("Image capture result :%d", ret);
-            } else
-                ret = 1001;
-        }
+            ALOGD("Finger down, capturing image");
+            ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
+            ALOGD("Image capture result: %d", ret);
+        } else
+            ret = 1001;
     } else {
         ret = 1000;
 
