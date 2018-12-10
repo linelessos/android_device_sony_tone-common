@@ -11,11 +11,6 @@ LOCAL_SRC_FILES := \
     QSEEComFunc.c \
     common.c
 
-# TEMPORARY:
-LOCAL_CPPFLAGS += \
-    -Wno-unused-parameter \
-    -fexceptions
-
 ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
 endif
@@ -53,8 +48,7 @@ endif
 
 LOCAL_CFLAGS += \
     -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
-    -Wno-missing-field-initializers \
-    -Wno-error=extern-c-compat
+    -fexceptions
 
 include $(BUILD_EXECUTABLE)
 endif

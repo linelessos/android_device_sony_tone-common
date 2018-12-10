@@ -324,7 +324,7 @@ void EgisOperationLoops::NotifyBadImage(int reason) {
     NotifyAcquired(acquiredInfo);
 }
 
-FingerprintError EgisOperationLoops::HandleMainStep(EGISAPTrustlet::API &lockedBuffer, command_buffer_t &cmd, int timeoutSec) {
+FingerprintError EgisOperationLoops::HandleMainStep(command_buffer_t &cmd, int timeoutSec) {
     switch (cmd.step) {
         case Step::WaitFingerprint: {
             auto reason = WaitForEvent(timeoutSec);
@@ -422,7 +422,7 @@ void EgisOperationLoops::EnrollAsync() {
                 ALOGD("Enroll: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
             } else if (!rc) {
-                auto fe = HandleMainStep(lockedBuffer, cmdOut, mEnrollTimeout);
+                auto fe = HandleMainStep(cmdOut, mEnrollTimeout);
                 if (fe != FingerprintError::ERROR_NO_ERROR) {
                     RunCancel(lockedBuffer);
                     return NotifyError(fe);
@@ -516,7 +516,7 @@ void EgisOperationLoops::AuthenticateAsync() {
                 ALOGD("Authenticate: bad image %#x, next step = %d", cmdOut.bad_image_reason, cmdOut.step);
                 NotifyBadImage(cmdOut.bad_image_reason);
             } else if (!rc) {
-                auto fe = HandleMainStep(lockedBuffer, cmdOut);
+                auto fe = HandleMainStep(cmdOut);
                 if (fe != FingerprintError::ERROR_NO_ERROR) {
                     RunCancel(lockedBuffer);
                     return NotifyError(fe);

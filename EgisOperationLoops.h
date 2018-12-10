@@ -88,7 +88,7 @@ class EgisOperationLoops : public EGISAPTrustlet {
     /**
      * Process the next step of the main section of enroll() or authenticate().
      */
-    FingerprintError HandleMainStep(EGISAPTrustlet::API &, command_buffer_t &, int timeoutSec = -1);
+    FingerprintError HandleMainStep(command_buffer_t &, int timeoutSec = -1);
 
     // These should run asynchronously from HAL calls:
     void EnrollAsync();
