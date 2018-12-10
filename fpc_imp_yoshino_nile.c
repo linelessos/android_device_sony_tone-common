@@ -342,22 +342,19 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
-    int result=-1;
+    int result = -1;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-//    while(1)
-    {
-        result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_DOWN);
-        ALOGE_IF(result, "Wait finger down result: %d\n", result);
-        if(result)
-            return result;
-
-        if((result = fpc_poll_irq()) == -1) {
-                ALOGV("Error waiting for irq: %d\n", result);
-                return -1;
-        }
+    result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_DOWN);
+    ALOGE_IF(result, "Wait finger down result: %d", result);
+    if(result)
         return result;
-    }
+
+    result = fpc_poll_event(&data->event);
+
+    if(result == FPC_EVENT_FINGER)
+        return 0;
+
     return -1;
 }
 
@@ -368,39 +365,31 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    if (fpc_set_power(FPC_PWRON) < 0) {
-        ALOGE("Error starting device\n");
-        return -1;
-    }
-    //fpc_deep_sleep(data);
-
     int ret = fpc_wait_finger_lost(data);
-    ALOGD("fpc_wait_finger_lost = 0x%08X", ret);
+    ALOGV("fpc_wait_finger_lost = 0x%08X", ret);
     if(!ret)
     {
-//        while(1)
+        ALOGV("Finger lost as expected");
+        ret = fpc_wait_finger_down(data);
+        ALOGV("fpc_wait_finger_down = 0x%08X", ret);
+        if(!ret)
         {
-            ALOGD("Finger lost as expected");
-            ret = fpc_wait_finger_down(data);
-            ALOGD("fpc_wait_finger_down = 0x%08X", ret);
-            if(ret == 1)
-            {
-                ALOGD("Finger down, capturing image");
-                ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
-                ALOGD("Image capture result :%d", ret);
-            } else
-                ret = 1001;
-        }
+            ALOGD("Finger down, capturing image");
+            ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
+            ALOGD("Image capture result: %d", ret);
+        } else
+            ret = 1001;
     } else {
         ret = 1000;
+
+        // Extend the wakelock to prevent going to sleep before entering
+        // a polling state again, which causes the sensor/hal to not
+        // respond to any finger touches during deep sleep.
+        fpc_keep_awake(&data->event, 1, 40);
+        // Wait 20ms before checking if the finger is lost again.
+        usleep(20000);
     }
 
-    if (fpc_set_power(FPC_PWROFF) < 0) {
-        ALOGE("Error stopping device\n");
-        return -1;
-    }
-
-    //send_normal_command(ldata, FPC_INIT);
     return ret;
 }
 
@@ -623,7 +612,7 @@ err_t fpc_close(fpc_imp_data_t **data)
     fpc_deep_sleep(*data);
 
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
-    if (fpc_set_power(FPC_PWROFF) < 0) {
+    if (fpc_set_power(&(*data)->event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         return -1;
     }
@@ -633,7 +622,7 @@ err_t fpc_close(fpc_imp_data_t **data)
     return 1;
 }
 
-err_t fpc_init(fpc_imp_data_t **data)
+err_t fpc_init(fpc_imp_data_t **data, int event_fd)
 {
     struct QSEECom_handle * mFPC_handle = NULL;
     struct QSEECom_handle * mKeymasterHandle = NULL;
@@ -646,13 +635,15 @@ err_t fpc_init(fpc_imp_data_t **data)
         goto err;
     }
 
-    if (fpc_set_power(FPC_PWRON) < 0) {
+    fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
+    fpc_data->auth_id = 0;
+
+    fpc_event_create(&fpc_data->data.event, event_fd);
+
+    if (fpc_set_power(&fpc_data->data.event, FPC_PWRON) < 0) {
         ALOGE("Error starting device\n");
         goto err_qsee;
     }
-
-    fpc_data_t *fpc_data = (fpc_data_t*)malloc(sizeof(fpc_data_t));
-    fpc_data->auth_id = 0;
 
     ALOGI("Starting app %s\n", KM_TZAPP_NAME);
     if (qsee_handle->load_trustlet(qsee_handle, &mKeymasterHandle, KM_TZAPP_ALT_PATH, KM_TZAPP_NAME, 1024) < 0) {
@@ -723,7 +714,7 @@ err_t fpc_init(fpc_imp_data_t **data)
 
     fpc_deep_sleep((fpc_imp_data_t*)fpc_data);
 
-    if (fpc_set_power(FPC_PWROFF) < 0) {
+    if (fpc_set_power(&fpc_data->data.event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         goto err_alloc;
     }
