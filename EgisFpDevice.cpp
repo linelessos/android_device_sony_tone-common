@@ -52,3 +52,11 @@ bool EgisFpDevice::WaitInterrupt(int timeout) const {
 int EgisFpDevice::GetDescriptor() const {
     return mFd;
 }
+
+FpHwId EgisFpDevice::GetHwId() const {
+    FpHwId id;
+    int rc = ioctl(mFd, ET51X_IOCRHWTYPE, &id);
+    if (rc)
+        throw FormatException("Failed to determine HW id: %d", rc);
+    return id;
+}

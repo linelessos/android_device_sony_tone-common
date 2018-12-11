@@ -31,10 +31,27 @@ using android::hardware::biometrics::fingerprint::V2_1::implementation::Biometri
 using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint_efp;
 
 int main() {
+    android::sp<IBiometricsFingerprint> bio;
 #ifdef USE_FPC_NILE
-    android::sp<IBiometricsFingerprint> bio = new BiometricsFingerprint_efp();
+    EgisFpDevice dev;
+    auto type = dev.GetHwId();
+    dev.~EgisFpDevice();
+
+    switch (type) {
+        case FpHwId::Egistec:
+            ALOGI("Egistec sensor installed");
+            bio = new BiometricsFingerprint_efp();
+            break;
+        case FpHwId::Fpc:
+            ALOGI("FPC sensor installed");
+            bio = BiometricsFingerprint::getInstance();
+            break;
+        default:
+            ALOGE("No HAL instance defined for hardware type %d", type);
+            return 1;
+    }
 #else
-    android::sp<IBiometricsFingerprint> bio = BiometricsFingerprint::getInstance();
+    bio = BiometricsFingerprint::getInstance();
 #endif
 
     configureRpcThreadpool(1, true /*callerWillJoin*/);

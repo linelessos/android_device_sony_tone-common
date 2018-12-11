@@ -14,6 +14,14 @@
 #define ET51X_IOCRIRQPOLL _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x04, int)
 #define ET51X_IOCRHWTYPE _IOR(ET51X_IOC_MAGIC, ET51X_IOC_R_BASE + 0x05, int)
 
+#define FP_HW_TYPE_EGISTEC 0
+#define FP_HW_TYPE_FPC 1
+
+enum class FpHwId {
+    Egistec = FP_HW_TYPE_EGISTEC,
+    Fpc = FP_HW_TYPE_FPC,
+};
+
 class EgisFpDevice {
     static constexpr auto DEV_PATH = "/dev/fingerprint";
 
@@ -34,6 +42,14 @@ class EgisFpDevice {
     int Disable() const;
     bool WaitInterrupt(int timeout = -1) const;
     int GetDescriptor() const;
+    /**
+     * Retrieve hardware ID from the FPC driver.
+     * Currently only has a meaning on the Nile platform,
+     * which can have an FPC or Egistec sensor.
+     * All other platforms do not support this call and will
+     * return an error.
+     */
+    FpHwId GetHwId() const;
 };
 
 /**
