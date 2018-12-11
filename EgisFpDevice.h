@@ -25,11 +25,14 @@ enum class FpHwId {
 class EgisFpDevice {
     static constexpr auto DEV_PATH = "/dev/fingerprint";
 
-    int mFd = 0;
+    int mFd = -1;
 
    public:
     EgisFpDevice();
     ~EgisFpDevice();
+
+    EgisFpDevice(EgisFpDevice &&);
+    EgisFpDevice &operator=(EgisFpDevice &&);
 
     int Reset() const;
     /**

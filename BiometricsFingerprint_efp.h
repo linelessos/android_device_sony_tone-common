@@ -28,7 +28,7 @@ using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
 struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
    public:
-    BiometricsFingerprint_efp();
+    BiometricsFingerprint_efp(EgisFpDevice &&);
 
     // Methods from ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint follow.
     Return<uint64_t> setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) override;

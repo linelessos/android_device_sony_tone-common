@@ -19,7 +19,7 @@
 
 using ::android::hardware::hidl_vec;
 
-EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId), mAuthenticatorId(GetRand64()) {
+EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : mDeviceId(deviceId), mDev(std::move(dev)), mAuthenticatorId(GetRand64()) {
     event_fd = eventfd((eventfd_t)AsyncState::Idle, EFD_NONBLOCK);
     if (event_fd < 0)
         throw FormatException("Failed to create eventfd: %s", strerror(errno));
@@ -38,7 +38,7 @@ EgisOperationLoops::EgisOperationLoops(uint64_t deviceId) : mDeviceId(deviceId),
     }
     {
         struct epoll_event ev = {
-            .data.fd = dev.GetDescriptor(),
+            .data.fd = mDev.GetDescriptor(),
             .events = EPOLLIN,
         };
         int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
@@ -108,7 +108,7 @@ void EgisOperationLoops::ProcessOpcode(const command_buffer_t &cmd) {
             break;
         case Step::Error:
             ALOGV("%s: Device error, resetting...", __func__);
-            dev.Reset();
+            mDev.Reset();
             break;
         default:
             break;
@@ -175,7 +175,7 @@ EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec
         }
 
     for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == dev.GetDescriptor() && events[ei].events | EPOLLIN) {
+        if (events[ei].data.fd == mDev.GetDescriptor() && events[ei].events | EPOLLIN) {
             ALOGD("%s: WakeupReason = Finger", __func__);
             return WakeupReason::Finger;
         }
@@ -370,7 +370,7 @@ FingerprintError EgisOperationLoops::HandleMainStep(command_buffer_t &cmd, int t
 }
 
 void EgisOperationLoops::EnrollAsync() {
-    DeviceEnableGuard<EgisFpDevice> guard{dev};
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
@@ -463,7 +463,7 @@ void EgisOperationLoops::EnrollAsync() {
 }
 
 void EgisOperationLoops::AuthenticateAsync() {
-    DeviceEnableGuard<EgisFpDevice> guard{dev};
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdOut = lockedBuffer.GetResponse().command_buffer;
@@ -633,7 +633,7 @@ int EgisOperationLoops::RemoveFinger(uint32_t fid) {
 }
 
 int EgisOperationLoops::Prepare() {
-    DeviceEnableGuard<EgisFpDevice> guard{dev};
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
     int rc = 0;
     auto lockedBuffer = GetLockedAPI();
     auto &cmdIn = lockedBuffer.GetRequest().command_buffer;

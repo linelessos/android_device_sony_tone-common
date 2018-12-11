@@ -33,16 +33,16 @@ class EgisOperationLoops : public EGISAPTrustlet {
     uint32_t mGid;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     std::mutex mClientCallbackMutex;
+    EgisFpDevice mDev;
     uint64_t mAuthenticatorId;
 
     AsyncState currentState = AsyncState::Idle;
     int epoll_fd;
     int event_fd;
-    EgisFpDevice dev;
     pthread_t thread;
 
    public:
-    EgisOperationLoops(uint64_t deviceId);
+    EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&);
 
    private:
     static void *ThreadStart(void *);

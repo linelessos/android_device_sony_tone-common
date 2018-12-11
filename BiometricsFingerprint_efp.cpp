@@ -11,7 +11,7 @@ namespace fingerprint {
 namespace V2_1 {
 namespace implementation {
 
-BiometricsFingerprint_efp::BiometricsFingerprint_efp() : loops(reinterpret_cast<uint64_t>(this)) {
+BiometricsFingerprint_efp::BiometricsFingerprint_efp(EgisFpDevice &&dev) : loops(reinterpret_cast<uint64_t>(this), std::move(dev)) {
     QSEEKeymasterTrustlet keymaster;
     mMasterKey = keymaster.GetKey();
 

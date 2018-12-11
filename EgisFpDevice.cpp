@@ -20,9 +20,18 @@ EgisFpDevice::EgisFpDevice() {
 }
 
 EgisFpDevice::~EgisFpDevice() {
-    if (mFd)
+    if (mFd >= 0)
         close(mFd);
-    mFd = 0;
+    mFd = -1;
+}
+
+EgisFpDevice::EgisFpDevice(EgisFpDevice &&other) {
+    std::swap(mFd, other.mFd);
+}
+
+EgisFpDevice &EgisFpDevice::operator=(EgisFpDevice &&other) {
+    std::swap(mFd, other.mFd);
+    return *this;
 }
 
 int EgisFpDevice::Reset() const {

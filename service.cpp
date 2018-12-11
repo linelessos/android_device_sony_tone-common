@@ -35,12 +35,11 @@ int main() {
 #ifdef USE_FPC_NILE
     EgisFpDevice dev;
     auto type = dev.GetHwId();
-    dev.~EgisFpDevice();
 
     switch (type) {
         case FpHwId::Egistec:
             ALOGI("Egistec sensor installed");
-            bio = new BiometricsFingerprint_efp();
+            bio = new BiometricsFingerprint_efp(std::move(dev));
             break;
         case FpHwId::Fpc:
             ALOGI("FPC sensor installed");
