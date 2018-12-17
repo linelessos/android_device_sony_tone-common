@@ -594,6 +594,9 @@ void * BiometricsFingerprint::worker_thread(void *args){
                         ALOGI("%s : Got print id : %u", __func__, print_id);
                         thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
                     }
+                } else if (verify_state == -EAGAIN) {
+                    ALOGI("%s : retrying due to receiving -EAGAIN", __func__);
+                    thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
                 } else {
                     int grp_err = -1;
                     /*
