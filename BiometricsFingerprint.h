@@ -18,7 +18,6 @@
 #define ANDROID_HARDWARE_BIOMETRICS_FINGERPRINT_V2_1_BIOMETRICSFINGERPRINT_H
 
 #include <log/log.h>
-#include <android/log.h>
 #include <hardware/hardware.h>
 #include <hardware/fingerprint.h>
 #include <hidl/MQDescriptor.h>

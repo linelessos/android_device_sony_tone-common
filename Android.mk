@@ -7,8 +7,7 @@ LOCAL_INIT_RC := android.hardware.biometrics.fingerprint@2.1-service.sony.rc
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
-    BiometricsFingerprint.cpp \
-    service.cpp \
+    $(call all-subdir-cpp-files) \
     QSEEComFunc.c \
     common.c
 
@@ -49,8 +48,7 @@ endif
 
 LOCAL_CFLAGS += \
     -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
-    -Wno-missing-field-initializers \
-    -Wno-error=extern-c-compat
+    -fexceptions
 
 include $(BUILD_EXECUTABLE)
 endif
