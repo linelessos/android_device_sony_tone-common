@@ -34,6 +34,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+#include <hardware/fingerprint.h>
+
 #define LOG_TAG "FPC IMP"
 //#define LOG_NDEBUG 0
 
@@ -393,17 +395,42 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
     if(ret)
     {
         ALOGV("Finger lost as expected");
-        ret = fpc_wait_finger_down(data);
-        ALOGV("fpc_wait_finger_down = 0x%08X", ret);
-        if(ret < 0)
-            return ret;
-        if(ret)
-        {
+        int tries = 0;
+        for (;;) {
+            ret = fpc_wait_finger_down(data);
+            ALOGV("fpc_wait_finger_down = 0x%08X", ret);
+            if(ret < 0)
+                return ret;
+            if(!ret)
+            {
+                ret = 1001;
+                break;
+            }
+
             ALOGD("Finger down, capturing image");
-            ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
+            ret = send_normal_command(ldata, FPC_GROUP_SENSOR,
+                FPC_CAPTURE_IMAGE);
             ALOGD("Image capture result: %d", ret);
-        } else
-            ret = 1001;
+
+            if(ret != 3)
+                break;
+
+            // Impose some artificial wait time before checking again:
+            fpc_keep_awake(&data->event, 1, 40);
+            usleep(20000);
+
+            if(++tries > 9) {
+                // If the result stays at 3 after 10 tries, not enough
+                // data has been collected.
+                // This prevents looping indefinitely (say when accidentally
+                // touching the sensor), and instead waits for the object to
+                // disappear again before continuing.
+
+                // Stock raises INSUFFICIENT:
+                ret = FINGERPRINT_ACQUIRED_INSUFFICIENT;
+                break;
+            }
+        };
     } else {
         ret = 1000;
 
