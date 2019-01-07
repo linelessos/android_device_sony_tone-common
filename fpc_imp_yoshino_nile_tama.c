@@ -51,6 +51,7 @@ typedef struct {
 } fpc_data_t;
 
 err_t fpc_deep_sleep(fpc_imp_data_t *data);
+err_t fpc_sensor_wake(fpc_imp_data_t *data);
 
 static const char *error_strings[] = {
 #if defined(USE_FPC_NILE) || defined(USE_FPC_TAMA)
@@ -410,6 +411,11 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
     {
         ALOGV("Finger lost as expected");
         int tries = 0;
+#ifdef USE_FPC_TAMA
+        ret = fpc_sensor_wake(data);
+        if (ret)
+            return ret;
+#endif
         for (;;) {
             ret = fpc_wait_finger_down(data);
             ALOGV("fpc_wait_finger_down = 0x%08X", ret);
@@ -445,6 +451,11 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
                 break;
             }
         };
+#ifdef USE_FPC_TAMA
+        int rc = fpc_deep_sleep(data);
+        ALOGE_IF(rc, "Sensor deep sleep failed: %d", rc);
+        // Do not return rc, return the code from above instead.
+#endif
     } else {
         ret = 1000;
 
@@ -663,15 +674,34 @@ err_t fpc_update_template(fpc_imp_data_t *data)
     return -1;
 }
 
-err_t fpc_deep_sleep(fpc_imp_data_t *data) {
+err_t fpc_deep_sleep(fpc_imp_data_t *data)
+{
     err_t result;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_DEEP_SLEEP);
 
-    ALOGI("Deep Sleep Result: %d\n", result);
+    ALOGV("Deep Sleep Result: %d", result);
 
     return result;
+}
+
+err_t fpc_sensor_wake(fpc_imp_data_t *data)
+{
+#ifdef USE_FPC_TAMA
+    int ret;
+    fpc_data_t *ldata = (fpc_data_t *)data;
+
+    ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_SENSOR_WAKE);
+    // NOTE: Seems to return 0 when a finger is on, 1 otherwise.
+    ALOGE_IF(ret < 0, "SENSOR_WAKE failed, rc=%d", ret);
+    if (ret < 0)
+        return ret;
+    ALOGV("%s: returned %d", __func__, ret);
+#else
+    (void)data;
+#endif
+    return 0;
 }
 
 err_t fpc_close(fpc_imp_data_t **data)
