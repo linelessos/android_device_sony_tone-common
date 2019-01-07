@@ -345,6 +345,7 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
 /**
  * Returns a positive value on success (finger is lost)
  * Returns 0 when an object is still touching the sensor
+ *   (Usually happens when the wait operation is interrupted)
  * Returns a negative value on error
  */
 err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
@@ -354,8 +355,21 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
     int result;
 
     result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_LOST);
+
+#ifdef USE_FPC_TAMA
+    ALOGE_IF(result, "Wait finger lost result: %d", result);
+    if(result)
+        return result;
+
+    result = fpc_poll_event(&data->event);
+
+    if(result == FPC_EVENT_ERROR)
+        return -1;
+    return result == FPC_EVENT_FINGER;
+#else
     ALOGE_IF(result < 0, "Wait finger lost result: %d", result);
     return result;
+#endif
 }
 
 /**
