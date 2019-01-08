@@ -264,13 +264,17 @@ void EgisOperationLoops::NotifyError(FingerprintError e) {
         e = FingerprintError::ERROR_UNABLE_TO_PROCESS;
 
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
-    if (mClientCallback)
+    if (mClientCallback == nullptr)
+        ALOGW("Client callback not set");
+    else
         mClientCallback->onError(mDeviceId, e, 0);
 }
 
 void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
-    if (mClientCallback)
+    if (mClientCallback == nullptr)
+        ALOGW("Client callback not set");
+    else
         mClientCallback->onRemoved(
             mDeviceId,
             fid,
@@ -281,7 +285,9 @@ void EgisOperationLoops::NotifyRemove(uint32_t fid, uint32_t remaining) {
 void EgisOperationLoops::NotifyAcquired(FingerprintAcquiredInfo acquiredInfo) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
     // Same here: No vendor acquire strings have been defined in an overlay.
-    if (mClientCallback)
+    if (mClientCallback == nullptr)
+        ALOGW("Client callback not set");
+    else
         mClientCallback->onAcquired(mDeviceId,
                                     std::min(acquiredInfo, FingerprintAcquiredInfo::ACQUIRED_VENDOR),
                                     acquiredInfo >= FingerprintAcquiredInfo::ACQUIRED_VENDOR ? (int32_t)acquiredInfo : 0);
@@ -291,7 +297,9 @@ void EgisOperationLoops::NotifyAuthenticated(uint32_t fid, const hw_auth_token_t
     auto hat_p = reinterpret_cast<const uint8_t *>(&hat);
     const hidl_vec<uint8_t> token(hat_p, hat_p + sizeof(hw_auth_token_t));
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
-    if (mClientCallback)
+    if (mClientCallback == nullptr)
+        ALOGW("Client callback not set");
+    else
         mClientCallback->onAuthenticated(mDeviceId,
                                          fid,
                                          mGid,
@@ -300,7 +308,9 @@ void EgisOperationLoops::NotifyAuthenticated(uint32_t fid, const hw_auth_token_t
 
 void EgisOperationLoops::NotifyEnrollResult(uint32_t fid, uint32_t remaining) {
     std::lock_guard<std::mutex> lock(mClientCallbackMutex);
-    if (mClientCallback)
+    if (mClientCallback == nullptr)
+        ALOGW("Client callback not set");
+    else
         mClientCallback->onEnrollResult(mDeviceId, fid, mGid, remaining);
 }
 
