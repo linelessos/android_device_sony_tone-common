@@ -254,8 +254,8 @@ class EGISAPTrustlet : public QSEETrustlet {
     class API {
         // TODO: Could be a templated class defined in QSEETrustlet.
 
-        static constexpr auto RequestOffset = 0x5c;
-        static constexpr auto ResponseOffset = 0x14;
+        static inline constexpr auto RequestOffset = 0x5c;
+        static inline constexpr auto ResponseOffset = 0x14;
 
         QSEETrustlet::LockedIONBuffer mLockedBuffer;
 
@@ -275,7 +275,7 @@ class EGISAPTrustlet : public QSEETrustlet {
             memmove(&GetRequest(), &GetResponse(), sizeof(trustlet_buffer_t));
         }
 
-        inline static constexpr size_t BufferSize() {
+        static inline constexpr size_t BufferSize() {
             return sizeof(trustlet_buffer_t) + std::max(RequestOffset, ResponseOffset);
         }
 

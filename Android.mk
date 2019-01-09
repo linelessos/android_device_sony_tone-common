@@ -48,7 +48,8 @@ endif
 
 LOCAL_CFLAGS += \
     -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION) \
-    -fexceptions
+    -fexceptions \
+    -std=c++1z
 
 include $(BUILD_EXECUTABLE)
 endif
