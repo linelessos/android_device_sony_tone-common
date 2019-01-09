@@ -213,10 +213,11 @@ err_t fpc_set_auth_challenge(fpc_imp_data_t *data, int64_t challenge)
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    fpc_send_auth_cmd_t auth_cmd = {0};
-    auth_cmd.group_id = FPC_GROUP_FPCDATA;
-    auth_cmd.cmd_id = FPC_SET_AUTH_CHALLENGE;
-    auth_cmd.challenge = challenge;
+    fpc_send_auth_cmd_t auth_cmd = {
+        .group_id = FPC_GROUP_FPCDATA,
+        .cmd_id = FPC_SET_AUTH_CHALLENGE,
+        .challenge = challenge,
+    };
 
     if(send_custom_cmd(ldata, &auth_cmd, sizeof(auth_cmd)) < 0) {
         ALOGE("Error sending data to tz\n");
@@ -231,9 +232,10 @@ int64_t fpc_load_auth_challenge(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_load_auth_challenge_t cmd = {0};
-    cmd.group_id = FPC_GROUP_FPCDATA;
-    cmd.cmd_id = FPC_GET_AUTH_CHALLENGE;
+    fpc_load_auth_challenge_t cmd = {
+        .group_id = FPC_GROUP_FPCDATA,
+        .cmd_id = FPC_GET_AUTH_CHALLENGE,
+    };
 
     if(send_custom_cmd(ldata, &cmd, sizeof(cmd)) < 0) {
         ALOGE("Error sending data to tz\n");
@@ -256,9 +258,10 @@ int64_t fpc_load_db_id(fpc_imp_data_t *data)
     if(ldata->auth_id > 0) {
         return ldata->auth_id;
     }
-    fpc_get_db_id_cmd_t cmd = {0};
-    cmd.group_id = FPC_GROUP_TEMPLATE;
-    cmd.cmd_id = FPC_GET_TEMPLATE_ID;
+    fpc_get_db_id_cmd_t cmd = {
+        .group_id = FPC_GROUP_TEMPLATE,
+        .cmd_id = FPC_GET_TEMPLATE_ID,
+    };
 
     if(send_custom_cmd(ldata, &cmd, sizeof(cmd)) < 0) {
         ALOGE("Error sending data to TZ\n");
@@ -272,12 +275,13 @@ int64_t fpc_load_db_id(fpc_imp_data_t *data)
 err_t fpc_get_hw_auth_obj(fpc_imp_data_t *data, void * buffer, uint32_t length)
 {
     ALOGV(__func__);
-    fpc_get_auth_result_t cmd = {0};
     fpc_data_t *ldata = (fpc_data_t*)data;
+    fpc_get_auth_result_t cmd = {
+        .group_id = FPC_GROUP_FPCDATA,
+        .cmd_id = FPC_GET_AUTH_RESULT,
+        .length = AUTH_RESULT_LENGTH,
+    };
 
-    cmd.group_id = FPC_GROUP_FPCDATA;
-    cmd.cmd_id = FPC_GET_AUTH_RESULT;
-    cmd.length = AUTH_RESULT_LENGTH;
     if(send_custom_cmd(ldata, &cmd, sizeof(cmd)) < 0) {
         ALOGE("Error sending data to tz\n");
         return -1;
@@ -312,10 +316,11 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
 
-    fpc_fingerprint_delete_t cmd = {0};
-    cmd.group_id = FPC_GROUP_TEMPLATE;
-    cmd.cmd_id = FPC_DELETE_FINGERPRINT;
-    cmd.fingerprint_id = id;
+    fpc_fingerprint_delete_t cmd = {
+        .group_id = FPC_GROUP_TEMPLATE,
+        .cmd_id = FPC_DELETE_FINGERPRINT,
+        .fingerprint_id = id,
+    };
 
     int ret = send_custom_cmd(ldata, &cmd, sizeof(cmd));
     if(ret < 0)
@@ -399,9 +404,10 @@ err_t fpc_enroll_step(fpc_imp_data_t *data, uint32_t *remaining_touches)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_enrol_step_t cmd = {0};
-    cmd.group_id = FPC_GROUP_TEMPLATE;
-    cmd.cmd_id = FPC_ENROL_STEP;
+    fpc_enrol_step_t cmd = {
+        .group_id = FPC_GROUP_TEMPLATE,
+        .cmd_id = FPC_ENROL_STEP,
+    };
 
     int ret = send_custom_cmd(ldata, &cmd, sizeof(cmd));
     if(ret <0)
@@ -434,9 +440,10 @@ err_t fpc_enroll_end(fpc_imp_data_t *data, uint32_t *print_id)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_end_enrol_t cmd = {0};
-    cmd.group_id = FPC_GROUP_TEMPLATE;
-    cmd.cmd_id = FPC_END_ENROL;
+    fpc_end_enrol_t cmd = {
+        .group_id = FPC_GROUP_TEMPLATE,
+        .cmd_id = FPC_END_ENROL,
+    };
 
     if(send_custom_cmd(ldata, &cmd, sizeof(cmd)) < 0) {
         ALOGE("Error sending enrol command\n");
@@ -462,10 +469,11 @@ err_t fpc_auth_start(fpc_imp_data_t __unused  *data)
 err_t fpc_auth_step(fpc_imp_data_t *data, uint32_t *print_id)
 {
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_send_identify_t identify_cmd = {0};
+    fpc_send_identify_t identify_cmd = {
+        .commandgroup = FPC_GROUP_TEMPLATE,
+        .command = FPC_IDENTIFY,
+    };
 
-    identify_cmd.commandgroup = FPC_GROUP_TEMPLATE;
-    identify_cmd.command = FPC_IDENTIFY;
     int result = send_custom_cmd(ldata, &identify_cmd, sizeof(identify_cmd));
     if(result)
     {
@@ -490,7 +498,7 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_fingerprint_index_t idx_data = {0};
+    fpc_fingerprint_index_t idx_data = {};
     fpc_fingerprint_list_t cmd = {
         .group_id = FPC_GROUP_TEMPLATE,
         .cmd_id = FPC_GET_FINGERPRINTS,
@@ -549,10 +557,11 @@ err_t fpc_set_gid(fpc_imp_data_t *data, uint32_t gid)
 {
     int result;
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_set_gid_t cmd = {0};
-    cmd.group_id = FPC_GROUP_TEMPLATE;
-    cmd.cmd_id = FPC_SET_GID;
-    cmd.gid = gid;
+    fpc_set_gid_t cmd = {
+        .group_id = FPC_GROUP_TEMPLATE,
+        .cmd_id = FPC_SET_GID,
+        .gid = gid,
+    };
 
     ALOGD("Setting GID to %d\n", gid);
     result = send_custom_cmd(ldata, &cmd, sizeof(cmd));
