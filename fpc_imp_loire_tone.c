@@ -323,6 +323,11 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
     return cmd.status;
 }
 
+/**
+ * Returns a positive value on success (finger is lost)
+ * Returns 0 when an object is still touching the sensor
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -330,12 +335,15 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
     int result;
 
     result = send_normal_command(ldata, FPC_WAIT_FINGER_LOST);
-    if(result > 0)
-        return 0;
-
-    return -1;
+    ALOGE_IF(result < 0, "Wait finger lost result: %d", result);
+    return result;
 }
 
+/**
+ * Returns a positive value on success (finger is down)
+ * Returns 0 when an event occurs (and the operation has to be stopped)
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -349,10 +357,9 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 
     result = fpc_poll_event(&data->event);
 
-    if(result == FPC_EVENT_FINGER)
-        return 0;
-
-    return -1;
+    if(result == FPC_EVENT_ERROR)
+        return -1;
+    return result == FPC_EVENT_FINGER;
 }
 
 // Attempt to capture image
@@ -364,12 +371,16 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     int ret = fpc_wait_finger_lost(data);
     ALOGV("fpc_wait_finger_lost = 0x%08X", ret);
-    if(!ret)
+    if(ret < 0)
+        return ret;
+    if(ret)
     {
         ALOGV("Finger lost as expected");
         ret = fpc_wait_finger_down(data);
         ALOGV("fpc_wait_finger_down = 0x%08X", ret);
-        if(!ret)
+        if(ret < 0)
+            return ret;
+        if(ret)
         {
             ALOGD("Finger down, capturing image");
             ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
