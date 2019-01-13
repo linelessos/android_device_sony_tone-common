@@ -376,9 +376,15 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
     return !rc;
 }
 
-void * BiometricsFingerprint::worker_thread(void *args){
-
+void * BiometricsFingerprint::worker_thread(void *args) {
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)args;
+    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
+            BiometricsFingerprint::getInstance());
+
+    if (!thisPtr) {
+        ALOGE("%s : No BiometricsFingerprint instance set!", __func__);
+        return NULL;
+    }
 
     bool thread_running = true;
     static const int EVENTS = 2;
@@ -398,12 +404,12 @@ void * BiometricsFingerprint::worker_thread(void *args){
             case STATE_ENROLL:
                 sdev->worker.running_state =  STATE_ENROLL;
                 ALOGI("%s : ENROLL", __func__);
-                process_enroll(sdev);
+                thisPtr->process_enroll(sdev);
                 break;
             case STATE_AUTH:
                 sdev->worker.running_state = STATE_AUTH;
                 ALOGI("%s : AUTH", __func__);
-                process_auth(sdev);
+                thisPtr->process_auth(sdev);
                 break;
             case STATE_EXIT:
                 sdev->worker.running_state = STATE_EXIT;
@@ -428,20 +434,17 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
     int32_t print_count = 0;
     // ALOGD("%s : print count is : %u", __func__, print_count);
 
-    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-            BiometricsFingerprint::getInstance());
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
-    const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-    std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-    if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback == nullptr) {
         ALOGE("Receiving callbacks before the client callback is registered.");
         return;
     }
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
         ALOGE("Error starting device");
-        thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+        mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
         return;
     }
 
@@ -457,14 +460,14 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
         ALOGD("%s : Got Input status=%d", __func__, status);
 
         if (isCanceled(sdev)) {
-            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+            mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
         }
 
         FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
 
         if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
-            thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
+            mClientCallback->onAcquired(devId, hidlStatus, 0);
 
         //image captured
         if (status == FINGERPRINT_ACQUIRED_GOOD) {
@@ -475,7 +478,7 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
             if (ret > 0) {
                 ALOGI("%s : Touches Remaining : %d", __func__, remaining_touches);
                 if (remaining_touches > 0) {
-                    thisPtr->mClientCallback->onEnrollResult(devId, 0, 0,remaining_touches);
+                    mClientCallback->onEnrollResult(devId, 0, 0,remaining_touches);
                 }
             }
             else if (ret == 0) {
@@ -485,7 +488,7 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
 
                 if (print_index < 0){
                     ALOGE("%s : Error getting new print index : %d", __func__,print_index);
-                    thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+                    mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
                     break;
                 }
 
@@ -493,13 +496,13 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
                 ALOGI("%s : User Database Length Is : %lu", __func__,(unsigned long) db_length);
                 fpc_store_user_db(sdev->fpc, db_length, sdev->db_path);
                 ALOGI("%s : Got print id : %lu", __func__,(unsigned long) print_id);
-                thisPtr->mClientCallback->onEnrollResult(devId, print_id, sdev->gid, 0);
+                mClientCallback->onEnrollResult(devId, print_id, sdev->gid, 0);
                 setState(sdev, STATE_IDLE);
                 break;
             }
             else {
                 ALOGE("Error in enroll step, aborting enroll: %d\n", ret);
-                thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+                mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
                 break;
             }
         }
@@ -514,20 +517,17 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
     int result;
     int status = 1;
 
-    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-            BiometricsFingerprint::getInstance());
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
-    const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-    std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-    if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback == nullptr) {
         ALOGE("Receiving callbacks before the client callback is registered.");
         return;
     }
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
         ALOGE("Error starting device");
-        thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+        mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
         return;
     }
 
@@ -537,14 +537,14 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
         ALOGV("%s : Got Input with status %d", __func__, status);
 
         if (isCanceled(sdev)) {
-            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+            mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
         }
 
         FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
 
         if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
-            thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
+            mClientCallback->onAcquired(devId, hidlStatus, 0);
 
         if (status == FINGERPRINT_ACQUIRED_GOOD) {
 
@@ -588,16 +588,16 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
                     const uint8_t* hat2 = reinterpret_cast<const uint8_t *>(&hat);
                     const hidl_vec<uint8_t> token(std::vector<uint8_t>(hat2, hat2 + sizeof(hat)));
 
-                    thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, token);
+                    mClientCallback->onAuthenticated(devId, fid, gid, token);
                     setState(sdev, STATE_IDLE);
                     break;
                 } else {
                     ALOGI("%s : Got print id : %u", __func__, print_id);
-                    thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
+                    mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
                 }
             } else if (verify_state == -EAGAIN) {
                 ALOGI("%s : retrying due to receiving -EAGAIN", __func__);
-                thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
+                mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
             } else {
                 int grp_err = -1;
                 /*

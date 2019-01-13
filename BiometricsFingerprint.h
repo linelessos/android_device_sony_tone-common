@@ -111,8 +111,8 @@ private:
     static enum worker_state getNextState(sony_fingerprint_device_t* sdev);
     static bool isCanceled(sony_fingerprint_device_t *sdev);
     static bool setState(sony_fingerprint_device_t* sdev, enum worker_state state);
-    static void process_enroll(sony_fingerprint_device_t *sdev);
-    static void process_auth(sony_fingerprint_device_t *sdev);
+    void process_enroll(sony_fingerprint_device_t *sdev);
+    void process_auth(sony_fingerprint_device_t *sdev);
 
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
