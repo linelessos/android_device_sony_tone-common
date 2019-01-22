@@ -169,13 +169,13 @@ EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec
     // Control events have priority over finger events, since
     // this is probably a request to cancel the current operation.
     for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == event_fd && events[ei].events | EPOLLIN) {
+        if (events[ei].data.fd == event_fd && events[ei].events & EPOLLIN) {
             ALOGD("%s: WakeupReason = Event", __func__);
             return WakeupReason::Event;
         }
 
     for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == mDev.GetDescriptor() && events[ei].events | EPOLLIN) {
+        if (events[ei].data.fd == mDev.GetDescriptor() && events[ei].events & EPOLLIN) {
             ALOGD("%s: WakeupReason = Finger", __func__);
             return WakeupReason::Finger;
         }
