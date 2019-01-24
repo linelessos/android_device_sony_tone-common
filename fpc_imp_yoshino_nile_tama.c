@@ -427,6 +427,10 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
                 break;
             }
 
+#ifdef USE_FPC_TAMA
+            // TEMPORARY: Capture image sometimes seems to block way too long.
+            fpc_keep_awake(&data->event, 1, 400);
+#endif
             ALOGD("Finger down, capturing image");
             ret = send_normal_command(ldata, FPC_GROUP_SENSOR,
                 FPC_CAPTURE_IMAGE);
