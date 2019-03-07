@@ -35,27 +35,24 @@ err_t fpc_event_create(fpc_event_t *event, int event_fd) {
     }
     event->epoll_fd = fd;
 
-    {
-        struct epoll_event ev = {
-            .data.fd = event_fd,
-            .events = EPOLLIN,
-        };
-        rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
-        if (rc) {
-            ALOGE("Failed to add event_fd to epoll: %d", rc);
-            return -1;
-        }
+    struct epoll_event ev = {
+        .data.fd = event_fd,
+        .events = EPOLLIN,
+    };
+    rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
+    if (rc) {
+        ALOGE("Failed to add event_fd to epoll: %d", rc);
+        return -1;
     }
-    {
-        struct epoll_event ev = {
-            .data.fd = event->dev_fd,
-            .events = EPOLLIN,
-        };
-        rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
-        if (rc) {
-            ALOGE("Failed to add event->dev_fd to epoll: %d", rc);
-            return -1;
-        }
+
+    ev = (struct epoll_event){
+        .data.fd = event->dev_fd,
+        .events = EPOLLIN,
+    };
+    rc = epoll_ctl(event->epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
+    if (rc) {
+        ALOGE("Failed to add event->dev_fd to epoll: %d", rc);
+        return -1;
     }
 
     return 0;
