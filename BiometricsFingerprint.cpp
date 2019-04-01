@@ -510,6 +510,9 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
         ALOGE("Error stopping device");
+
+    if (status < 0)
+        mClientCallback->onError(devId, FingerprintError::ERROR_HW_UNAVAILABLE, 0);
 }
 
 
@@ -615,6 +618,9 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
         ALOGE("Error stopping device");
+
+    if (status < 0)
+        mClientCallback->onError(devId, FingerprintError::ERROR_HW_UNAVAILABLE, 0);
 }
 
 } // namespace implementation
