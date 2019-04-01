@@ -439,6 +439,7 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
         ALOGE("Error starting device");
+        sdev->worker.running_state = STATE_IDLE;
         mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
         return;
     }
@@ -455,6 +456,7 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
         ALOGD("%s : Got Input status=%d", __func__, status);
 
         if (isCanceled(sdev)) {
+            sdev->worker.running_state = STATE_IDLE;
             mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
         }
@@ -477,12 +479,12 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
                 }
             }
             else if (ret == 0) {
-
                 uint32_t print_id = 0;
                 int print_index = fpc_enroll_end(sdev->fpc, &print_id);
 
                 if (print_index < 0){
                     ALOGE("%s : Error getting new print index : %d", __func__,print_index);
+                    sdev->worker.running_state = STATE_IDLE;
                     mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
                     break;
                 }
@@ -491,12 +493,13 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
                 ALOGI("%s : User Database Length Is : %lu", __func__,(unsigned long) db_length);
                 fpc_store_user_db(sdev->fpc, db_length, sdev->db_path);
                 ALOGI("%s : Got print id : %lu", __func__,(unsigned long) print_id);
+                sdev->worker.running_state = STATE_IDLE;
                 mClientCallback->onEnrollResult(devId, print_id, sdev->gid, 0);
-                setState(sdev, STATE_IDLE);
                 break;
             }
             else {
                 ALOGE("Error in enroll step, aborting enroll: %d\n", ret);
+                sdev->worker.running_state = STATE_IDLE;
                 mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
                 break;
             }
@@ -525,6 +528,7 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
 
     if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
         ALOGE("Error starting device");
+        sdev->worker.running_state = STATE_IDLE;
         mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
         return;
     }
@@ -535,6 +539,7 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
         ALOGV("%s : Got Input with status %d", __func__, status);
 
         if (isCanceled(sdev)) {
+            sdev->worker.running_state = STATE_IDLE;
             mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
         }
@@ -586,8 +591,8 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
                     const uint8_t* hat2 = reinterpret_cast<const uint8_t *>(&hat);
                     const hidl_vec<uint8_t> token(std::vector<uint8_t>(hat2, hat2 + sizeof(hat)));
 
+                    sdev->worker.running_state = STATE_IDLE;
                     mClientCallback->onAuthenticated(devId, fid, gid, token);
-                    setState(sdev, STATE_IDLE);
                     break;
                 } else {
                     ALOGI("%s : Got print id : %u", __func__, print_id);
