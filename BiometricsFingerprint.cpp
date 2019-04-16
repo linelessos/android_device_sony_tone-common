@@ -159,7 +159,11 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
     ALOGV(__func__);
     sony_fingerprint_device_t *sdev = mDevice;
 
-    fpc_fingerprint_index_t print_indexs = fpc_get_print_index(sdev->fpc);
+    fpc_fingerprint_index_t print_indexs;
+    int rc = fpc_get_print_index(sdev->fpc, &print_indexs);
+
+    if (rc)
+        return ErrorFilter(rc);
 
     if (!print_indexs.print_count)
         // When there are no fingers, the service still needs to know that (potentially async)
