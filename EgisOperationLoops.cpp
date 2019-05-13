@@ -27,26 +27,22 @@ EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : 
     if (epoll_fd < 0)
         throw FormatException("Failed to create epoll: %s", strerror(errno));
 
-    {
-        struct epoll_event ev = {
-            .data.fd = event_fd,
-            .events = EPOLLIN,
-        };
-        int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &ev);
-        if (rc)
-            throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
-    }
-    {
-        struct epoll_event ev = {
-            .data.fd = mDev.GetDescriptor(),
-            .events = EPOLLIN,
-        };
-        int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
-        if (rc)
-            throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
-    }
+    struct epoll_event ev = {
+        .data.fd = event_fd,
+        .events = EPOLLIN,
+    };
+    int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &ev);
+    if (rc)
+        throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
+    ev = {
+        .data.fd = mDev.GetDescriptor(),
+        .events = EPOLLIN,
+    };
+    rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
+    if (rc)
+        throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
 
-    int rc = pthread_create(&thread, NULL, ThreadStart, this);
+    rc = pthread_create(&thread, NULL, ThreadStart, this);
     if (rc)
         throw FormatException("Failed to start pthread: %d %s", rc, strerror(errno));
 }

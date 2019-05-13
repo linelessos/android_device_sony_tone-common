@@ -323,6 +323,11 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
     return cmd.status;
 }
 
+/**
+ * Returns a positive value on success (finger is lost)
+ * Returns 0 when an object is still touching the sensor
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -330,12 +335,15 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
     int result;
 
     result = send_normal_command(ldata, FPC_WAIT_FINGER_LOST);
-    if(result > 0)
-        return 0;
-
-    return -1;
+    ALOGE_IF(result < 0, "Wait finger lost result: %d", result);
+    return result;
 }
 
+/**
+ * Returns a positive value on success (finger is down)
+ * Returns 0 when an event occurs (and the operation has to be stopped)
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -349,10 +357,9 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 
     result = fpc_poll_event(&data->event);
 
-    if(result == FPC_EVENT_FINGER)
-        return 0;
-
-    return -1;
+    if(result == FPC_EVENT_ERROR)
+        return -1;
+    return result == FPC_EVENT_FINGER;
 }
 
 // Attempt to capture image
@@ -364,12 +371,16 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     int ret = fpc_wait_finger_lost(data);
     ALOGV("fpc_wait_finger_lost = 0x%08X", ret);
-    if(!ret)
+    if(ret < 0)
+        return ret;
+    if(ret)
     {
         ALOGV("Finger lost as expected");
         ret = fpc_wait_finger_down(data);
         ALOGV("fpc_wait_finger_down = 0x%08X", ret);
-        if(!ret)
+        if(ret < 0)
+            return ret;
+        if(ret)
         {
             ALOGD("Finger down, capturing image");
             ret = send_normal_command(ldata, FPC_CAPTURE_IMAGE);
@@ -491,11 +502,10 @@ err_t fpc_update_template(fpc_imp_data_t __unused *data)
     return 0;
 }
 
-fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
+err_t fpc_get_print_index(fpc_imp_data_t *data, fpc_fingerprint_index_t *idx_data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_fingerprint_index_t idx_data = {};
     fpc_fingerprint_list_t cmd = {
         .group_id = FPC_GROUP_NORMAL,
         .cmd_id = FPC_GET_FINGERPRINTS,
@@ -504,19 +514,20 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
     unsigned int i;
 
     int ret = send_custom_cmd(ldata, &cmd, sizeof(cmd));
-    if(ret < 0 || cmd.status != 0)
-    {
-        ALOGE("Error retrieving fingerprints: rc = %d, status = %d", ret, cmd.status);
+    if(ret < 0 || cmd.status != 0) {
+        ALOGE("Failed to retrieve fingerprints: rc = %d, status = %d", ret, cmd.status);
+        return -EINVAL;
+    } else if (cmd.length > MAX_FINGERPRINTS) {
+        ALOGE("FPC_GET_FINGERPRINTS Returned more than MAX_FINGERPRINTS: %u", idx_data->print_count);
+        return -EINVAL;
     }
 
     ALOGI("Found %d fingerprints", cmd.length);
-    idx_data.print_count = cmd.length;
-    for(i=0; i< cmd.length; i++)
-    {
-        idx_data.prints[i] = cmd.fingerprints[i];
-    }
+    idx_data->print_count = cmd.length;
+    for(i = 0; i < cmd.length; i++)
+        idx_data->prints[i] = cmd.fingerprints[i];
 
-    return idx_data;
+    return 0;
 }
 
 
@@ -592,6 +603,9 @@ err_t fpc_close(fpc_imp_data_t **data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
+
+    fpc_event_destroy(&ldata->data.event);
+
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
     if (fpc_set_power(&(*data)->event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");

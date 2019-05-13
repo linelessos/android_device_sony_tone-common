@@ -61,8 +61,8 @@ enum fingerprint_fpcdata_cmd_t {
 
 //enumerate tz app command ID's
 enum fingerprint_sensor_cmd_t {
-    FPC_WAIT_FINGER_LOST = 0x00,
-    FPC_SENSOR_WAKE = 0x01,
+    FPC_SENSOR_WAKE = 0x00,
+    FPC_WAIT_FINGER_LOST = 0x01,
     FPC_WAIT_FINGER_DOWN = 0x02,
     FPC_CAPTURE_IMAGE = 0x3,
     FPC_DEEP_SLEEP = 0x04,

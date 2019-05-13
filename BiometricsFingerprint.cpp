@@ -17,11 +17,6 @@
 #define LOG_TAG "AOSP FPC HAL (Binder)"
 #define LOG_VERBOSE "AOSP FPC HAL (Binder)"
 
-#include <arpa/inet.h>
-#include <hardware/hw_auth_token.h>
-
-#include <hardware/hardware.h>
-#include <hardware/fingerprint.h>
 #include "BiometricsFingerprint.h"
 
 #include <inttypes.h>
@@ -153,7 +148,7 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
     return RequestStatus::SYS_UNKNOWN;
 }
 
-Return<RequestStatus> BiometricsFingerprint::enumerate()  {
+Return<RequestStatus> BiometricsFingerprint::enumerate() {
 
     const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
     if (mClientCallback == nullptr) {
@@ -164,7 +159,11 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
     ALOGV(__func__);
     sony_fingerprint_device_t *sdev = mDevice;
 
-    fpc_fingerprint_index_t print_indexs = fpc_get_print_index(sdev->fpc);
+    fpc_fingerprint_index_t print_indexs;
+    int rc = fpc_get_print_index(sdev->fpc, &print_indexs);
+
+    if (rc)
+        return ErrorFilter(rc);
 
     if (!print_indexs.print_count)
         // When there are no fingers, the service still needs to know that (potentially async)
@@ -376,9 +375,15 @@ bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worke
     return !rc;
 }
 
-void * BiometricsFingerprint::worker_thread(void *args){
-
+void * BiometricsFingerprint::worker_thread(void *args) {
     sony_fingerprint_device_t *sdev = (sony_fingerprint_device_t*)args;
+    BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
+            BiometricsFingerprint::getInstance());
+
+    if (!thisPtr) {
+        ALOGE("%s : No BiometricsFingerprint instance set!", __func__);
+        return NULL;
+    }
 
     bool thread_running = true;
     static const int EVENTS = 2;
@@ -398,12 +403,12 @@ void * BiometricsFingerprint::worker_thread(void *args){
             case STATE_ENROLL:
                 sdev->worker.running_state =  STATE_ENROLL;
                 ALOGI("%s : ENROLL", __func__);
-                process_enroll(sdev);
+                thisPtr->process_enroll(sdev);
                 break;
             case STATE_AUTH:
                 sdev->worker.running_state = STATE_AUTH;
                 ALOGI("%s : AUTH", __func__);
-                process_auth(sdev);
+                thisPtr->process_auth(sdev);
                 break;
             case STATE_EXIT:
                 sdev->worker.running_state = STATE_EXIT;
@@ -423,199 +428,210 @@ void * BiometricsFingerprint::worker_thread(void *args){
     return NULL;
 }
 
-    void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
-        // WARNING: Not implemented on any platform
-        int32_t print_count = 0;
-        // ALOGD("%s : print count is : %u", __func__, print_count);
+void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
+    // WARNING: Not implemented on any platform
+    int32_t print_count = 0;
+    // ALOGD("%s : print count is : %u", __func__, print_count);
 
-        BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-                BiometricsFingerprint::getInstance());
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
 
-        const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
-
-        std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-        if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
-            ALOGE("Receiving callbacks before the client callback is registered.");
-            return;
-        }
-
-        if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
-            ALOGE("Error starting device");
-            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
-            return;
-        }
-
-        int ret = fpc_enroll_start(sdev->fpc, print_count);
-        if(ret < 0)
-        {
-            ALOGE("Starting enroll failed: %d\n", ret);
-        }
-
-        int status = 1;
-
-        while((status = fpc_capture_image(sdev->fpc)) >= 0) {
-            ALOGD("%s : Got Input status=%d", __func__, status);
-
-            if (isCanceled(sdev)) {
-                thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
-                break;
-            }
-
-            FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
-
-            if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
-                thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
-
-            //image captured
-            if (status == FINGERPRINT_ACQUIRED_GOOD) {
-                ALOGI("%s : Enroll Step", __func__);
-                uint32_t remaining_touches = 0;
-                int ret = fpc_enroll_step(sdev->fpc, &remaining_touches);
-                ALOGI("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
-                if (ret > 0) {
-                    ALOGI("%s : Touches Remaining : %d", __func__, remaining_touches);
-                    if (remaining_touches > 0) {
-                        thisPtr->mClientCallback->onEnrollResult(devId, 0, 0,remaining_touches);
-                    }
-                }
-                else if (ret == 0) {
-
-                    uint32_t print_id = 0;
-                    int print_index = fpc_enroll_end(sdev->fpc, &print_id);
-
-                    if (print_index < 0){
-                        ALOGE("%s : Error getting new print index : %d", __func__,print_index);
-                        thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
-                        break;
-                    }
-
-                    uint32_t db_length = fpc_get_user_db_length(sdev->fpc);
-                    ALOGI("%s : User Database Length Is : %lu", __func__,(unsigned long) db_length);
-                    fpc_store_user_db(sdev->fpc, db_length, sdev->db_path);
-                    ALOGI("%s : Got print id : %lu", __func__,(unsigned long) print_id);
-                    thisPtr->mClientCallback->onEnrollResult(devId, print_id, sdev->gid, 0);
-                    setState(sdev, STATE_IDLE);
-                    break;
-                }
-                else {
-                    ALOGE("Error in enroll step, aborting enroll: %d\n", ret);
-                    thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
-                    break;
-                }
-            }
-        }
-
-        if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
-            ALOGE("Error stopping device");
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback == nullptr) {
+        ALOGE("Receiving callbacks before the client callback is registered.");
+        return;
     }
 
+    if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
+        ALOGE("Error starting device");
+        sdev->worker.running_state = STATE_IDLE;
+        mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+        return;
+    }
 
-    void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
-        int result;
-        int status = 1;
+    int ret = fpc_enroll_start(sdev->fpc, print_count);
+    if(ret < 0)
+    {
+        ALOGE("Starting enroll failed: %d\n", ret);
+    }
 
-        BiometricsFingerprint* thisPtr = static_cast<BiometricsFingerprint*>(
-                BiometricsFingerprint::getInstance());
+    int status = 1;
 
-        const uint64_t devId = reinterpret_cast<uint64_t>(thisPtr->mDevice);
+    while((status = fpc_capture_image(sdev->fpc)) >= 0) {
+        ALOGD("%s : Got Input status=%d", __func__, status);
 
-        std::lock_guard<std::mutex> lock(thisPtr->mClientCallbackMutex);
-        if (thisPtr == nullptr || thisPtr->mClientCallback == nullptr) {
-            ALOGE("Receiving callbacks before the client callback is registered.");
-            return;
+        if (isCanceled(sdev)) {
+            sdev->worker.running_state = STATE_IDLE;
+            mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+            break;
         }
 
-        if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
-            ALOGE("Error starting device");
-            thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
-            return;
-        }
+        FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
 
-        fpc_auth_start(sdev->fpc);
+        if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
+            mClientCallback->onAcquired(devId, hidlStatus, 0);
 
-        while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
-            ALOGV("%s : Got Input with status %d", __func__, status);
-
-            if (isCanceled(sdev)) {
-                thisPtr->mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
-                break;
+        //image captured
+        if (status == FINGERPRINT_ACQUIRED_GOOD) {
+            ALOGI("%s : Enroll Step", __func__);
+            uint32_t remaining_touches = 0;
+            int ret = fpc_enroll_step(sdev->fpc, &remaining_touches);
+            ALOGI("%s: step: %d, touches=%d\n", __func__, ret, remaining_touches);
+            if (ret > 0) {
+                ALOGI("%s : Touches Remaining : %d", __func__, remaining_touches);
+                if (remaining_touches > 0) {
+                    mClientCallback->onEnrollResult(devId, 0, 0,remaining_touches);
+                }
             }
-
-            FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
-
-            if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
-                thisPtr->mClientCallback->onAcquired(devId, hidlStatus, 0);
-
-            if (status == FINGERPRINT_ACQUIRED_GOOD) {
-
+            else if (ret == 0) {
                 uint32_t print_id = 0;
-                int verify_state = fpc_auth_step(sdev->fpc, &print_id);
-                ALOGI("%s : Auth step = %d", __func__, verify_state);
+                int print_index = fpc_enroll_end(sdev->fpc, &print_id);
 
-                /* After getting something that ought to have been
-                 * recognizable: Either send proper notification, or
-                 * dummy one where fid=zero stands for unrecognized.
-                 */
-                uint32_t gid = sdev->gid;
-                uint32_t fid = 0;
-
-                if (verify_state >= 0) {
-                    if(print_id > 0)
-                    {
-                        hw_auth_token_t hat;
-                        ALOGI("%s : Got print id : %u", __func__, print_id);
-
-                        result = fpc_update_template(sdev->fpc);
-                        if(result)
-                        {
-                            ALOGE("Error updating template: %d", result);
-                        } else {
-                            result = fpc_store_user_db(sdev->fpc, 0, sdev->db_path);
-                            if (result) ALOGE("Error storing database: %d", result);
-                        }
-
-                        fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
-
-                        ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
-                        ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
-                        ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
-                        ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
-                        ALOGI("%s : hat->timestamp %lu", __func__, bswap_64(hat.timestamp));
-                        ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
-
-                        fid = print_id;
-
-                        const uint8_t* hat2 = reinterpret_cast<const uint8_t *>(&hat);
-                        const hidl_vec<uint8_t> token(std::vector<uint8_t>(hat2, hat2 + sizeof(hat)));
-
-                        thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, token);
-                        setState(sdev, STATE_IDLE);
-                        break;
-                    } else {
-                        ALOGI("%s : Got print id : %u", __func__, print_id);
-                        thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
-                    }
-                } else if (verify_state == -EAGAIN) {
-                    ALOGI("%s : retrying due to receiving -EAGAIN", __func__);
-                    thisPtr->mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
-                } else {
-                    int grp_err = -1;
-                    /*
-                     * Reinitialize the TZ app and parameters
-                     * to clear the TZ error generated by flooding it
-                     */
-                    fpc_close(&sdev->fpc);
-                    fpc_init(&sdev->fpc, sdev->worker.event_fd);
-                    grp_err = __setActiveGroup(sdev, gid);
-                    if (grp_err)
-                        ALOGE("%s : Cannot reinitialize database", __func__);
+                if (print_index < 0){
+                    ALOGE("%s : Error getting new print index : %d", __func__,print_index);
+                    sdev->worker.running_state = STATE_IDLE;
+                    mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+                    break;
                 }
+
+                uint32_t db_length = fpc_get_user_db_length(sdev->fpc);
+                ALOGI("%s : User Database Length Is : %lu", __func__,(unsigned long) db_length);
+                fpc_store_user_db(sdev->fpc, db_length, sdev->db_path);
+                ALOGI("%s : Got print id : %lu", __func__,(unsigned long) print_id);
+                sdev->worker.running_state = STATE_IDLE;
+                mClientCallback->onEnrollResult(devId, print_id, sdev->gid, 0);
+                break;
+            }
+            else {
+                ALOGE("Error in enroll step, aborting enroll: %d\n", ret);
+                sdev->worker.running_state = STATE_IDLE;
+                mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+                break;
             }
         }
-
-        if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
-            ALOGE("Error stopping device");
     }
+
+    if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
+        ALOGE("Error stopping device");
+
+    if (status < 0)
+        mClientCallback->onError(devId, FingerprintError::ERROR_HW_UNAVAILABLE, 0);
+}
+
+
+void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
+    int result;
+    int status = 1;
+
+    const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
+
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (mClientCallback == nullptr) {
+        ALOGE("Receiving callbacks before the client callback is registered.");
+        return;
+    }
+
+    if (fpc_set_power(&sdev->fpc->event, FPC_PWRON) < 0) {
+        ALOGE("Error starting device");
+        sdev->worker.running_state = STATE_IDLE;
+        mClientCallback->onError(devId, FingerprintError::ERROR_UNABLE_TO_PROCESS, 0);
+        return;
+    }
+
+    fpc_auth_start(sdev->fpc);
+
+    while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
+        ALOGV("%s : Got Input with status %d", __func__, status);
+
+        if (isCanceled(sdev)) {
+            sdev->worker.running_state = STATE_IDLE;
+            mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
+            break;
+        }
+
+        FingerprintAcquiredInfo hidlStatus = (FingerprintAcquiredInfo)status;
+
+        if (hidlStatus <= FingerprintAcquiredInfo::ACQUIRED_TOO_FAST)
+            mClientCallback->onAcquired(devId, hidlStatus, 0);
+
+        if (status == FINGERPRINT_ACQUIRED_GOOD) {
+
+            uint32_t print_id = 0;
+            int verify_state = fpc_auth_step(sdev->fpc, &print_id);
+            ALOGI("%s : Auth step = %d", __func__, verify_state);
+
+            /* After getting something that ought to have been
+             * recognizable: Either send proper notification, or
+             * dummy one where fid=zero stands for unrecognized.
+             */
+            uint32_t gid = sdev->gid;
+            uint32_t fid = 0;
+
+            if (verify_state >= 0) {
+                if(print_id > 0)
+                {
+                    hw_auth_token_t hat;
+                    ALOGI("%s : Got print id : %u", __func__, print_id);
+
+                    result = fpc_update_template(sdev->fpc);
+                    if(result)
+                    {
+                        ALOGE("Error updating template: %d", result);
+                    } else {
+                        result = fpc_store_user_db(sdev->fpc, 0, sdev->db_path);
+                        if (result) ALOGE("Error storing database: %d", result);
+                    }
+
+                    fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
+
+                    ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
+                    ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
+                    ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
+                    ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
+                    ALOGI("%s : hat->timestamp %lu", __func__, bswap_64(hat.timestamp));
+                    ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
+
+                    fid = print_id;
+
+                    const uint8_t* hat2 = reinterpret_cast<const uint8_t *>(&hat);
+                    const hidl_vec<uint8_t> token(std::vector<uint8_t>(hat2, hat2 + sizeof(hat)));
+
+                    sdev->worker.running_state = STATE_IDLE;
+                    mClientCallback->onAuthenticated(devId, fid, gid, token);
+                    break;
+                } else {
+                    ALOGI("%s : Got print id : %u", __func__, print_id);
+                    mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
+                }
+            } else if (verify_state == -EAGAIN) {
+                ALOGI("%s : retrying due to receiving -EAGAIN", __func__);
+                mClientCallback->onAuthenticated(devId, fid, gid, hidl_vec<uint8_t>());
+            } else {
+                /*
+                 * Reinitialize the TZ app and parameters
+                 * to clear the TZ error generated by flooding it
+                 */
+                fpc_close(&sdev->fpc);
+                fpc_init(&sdev->fpc, sdev->worker.event_fd);
+#ifdef USE_FPC_YOSHINO
+                int grp_err = __setActiveGroup(sdev, gid);
+                if (grp_err)
+                    ALOGE("%s : Cannot reinitialize database", __func__);
+#else
+                // Break out of the loop, and make sure ERROR_HW_UNAVAILABLE
+                // is raised afterwards, similar to the stock hal:
+                status = -1;
+                break;
+#endif
+            }
+        }
+    }
+
+    if (fpc_set_power(&sdev->fpc->event, FPC_PWROFF) < 0)
+        ALOGE("Error stopping device");
+
+    if (status < 0)
+        mClientCallback->onError(devId, FingerprintError::ERROR_HW_UNAVAILABLE, 0);
+}
 
 } // namespace implementation
 }  // namespace V2_1

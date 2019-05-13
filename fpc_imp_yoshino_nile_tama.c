@@ -34,6 +34,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+#include <hardware/fingerprint.h>
+
 #define LOG_TAG "FPC IMP"
 //#define LOG_NDEBUG 0
 
@@ -49,6 +51,7 @@ typedef struct {
 } fpc_data_t;
 
 err_t fpc_deep_sleep(fpc_imp_data_t *data);
+err_t fpc_sensor_wake(fpc_imp_data_t *data);
 
 static const char *error_strings[] = {
 #if defined(USE_FPC_NILE) || defined(USE_FPC_TAMA)
@@ -137,10 +140,17 @@ err_t send_normal_command(fpc_data_t *ldata, int group, int command)
 err_t send_buffer_command(fpc_data_t *ldata, uint32_t group_id, uint32_t cmd_id, const uint8_t *buffer, uint32_t length)
 {
     struct qcom_km_ion_info_t ihandle;
+
+    if (!ldata || !ldata->qsee_handle) {
+        ALOGE("%s: ldata(=%p) or qsee_handle NULL", __func__, ldata);
+        return -EINVAL;
+    }
+
     if (ldata->qsee_handle->ion_alloc(&ihandle, length + sizeof(fpc_send_buffer_t)) <0) {
         ALOGE("ION allocation  failed");
         return -1;
     }
+
     fpc_send_buffer_t *cmd_data = (fpc_send_buffer_t*)ihandle.ion_sbuffer;
     memset(ihandle.ion_sbuffer, 0, length + sizeof(fpc_send_buffer_t));
     cmd_data->group_id = group_id;
@@ -333,6 +343,12 @@ err_t fpc_del_print_id(fpc_imp_data_t *data, uint32_t id)
     return cmd.status;
 }
 
+/**
+ * Returns a positive value on success (finger is lost)
+ * Returns 0 when an object is still touching the sensor
+ *   (Usually happens when the wait operation is interrupted)
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -340,12 +356,28 @@ err_t fpc_wait_finger_lost(fpc_imp_data_t *data)
     int result;
 
     result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_WAIT_FINGER_LOST);
-    if(result > 0)
-        return 0;
 
-    return -1;
+#ifdef USE_FPC_TAMA
+    ALOGE_IF(result, "Wait finger lost result: %d", result);
+    if(result)
+        return result;
+
+    result = fpc_poll_event(&data->event);
+
+    if(result == FPC_EVENT_ERROR)
+        return -1;
+    return result == FPC_EVENT_FINGER;
+#else
+    ALOGE_IF(result < 0, "Wait finger lost result: %d", result);
+    return result;
+#endif
 }
 
+/**
+ * Returns a positive value on success (finger is down)
+ * Returns 0 when an event occurs (and the operation has to be stopped)
+ * Returns a negative value on error
+ */
 err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 {
     ALOGV(__func__);
@@ -359,10 +391,9 @@ err_t fpc_wait_finger_down(fpc_imp_data_t *data)
 
     result = fpc_poll_event(&data->event);
 
-    if(result == FPC_EVENT_FINGER)
-        return 0;
-
-    return -1;
+    if(result == FPC_EVENT_ERROR)
+        return -1;
+    return result == FPC_EVENT_FINGER;
 }
 
 // Attempt to capture image
@@ -374,18 +405,61 @@ err_t fpc_capture_image(fpc_imp_data_t *data)
 
     int ret = fpc_wait_finger_lost(data);
     ALOGV("fpc_wait_finger_lost = 0x%08X", ret);
-    if(!ret)
+    if(ret < 0)
+        return ret;
+    if(ret)
     {
         ALOGV("Finger lost as expected");
-        ret = fpc_wait_finger_down(data);
-        ALOGV("fpc_wait_finger_down = 0x%08X", ret);
-        if(!ret)
-        {
+        int tries = 0;
+#ifdef USE_FPC_TAMA
+        ret = fpc_sensor_wake(data);
+        if (ret)
+            return ret;
+#endif
+        for (;;) {
+            ret = fpc_wait_finger_down(data);
+            ALOGV("fpc_wait_finger_down = 0x%08X", ret);
+            if(ret < 0)
+                return ret;
+            if(!ret)
+            {
+                ret = 1001;
+                break;
+            }
+
+#ifdef USE_FPC_TAMA
+            // TEMPORARY: Capture image sometimes seems to block way too long.
+            fpc_keep_awake(&data->event, 1, 400);
+#endif
             ALOGD("Finger down, capturing image");
-            ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_CAPTURE_IMAGE);
+            ret = send_normal_command(ldata, FPC_GROUP_SENSOR,
+                FPC_CAPTURE_IMAGE);
             ALOGD("Image capture result: %d", ret);
-        } else
-            ret = 1001;
+
+            if(ret != 3)
+                break;
+
+            // Impose some artificial wait time before checking again:
+            fpc_keep_awake(&data->event, 1, 40);
+            usleep(20000);
+
+            if(++tries > 9) {
+                // If the result stays at 3 after 10 tries, not enough
+                // data has been collected.
+                // This prevents looping indefinitely (say when accidentally
+                // touching the sensor), and instead waits for the object to
+                // disappear again before continuing.
+
+                // Stock raises INSUFFICIENT:
+                ret = FINGERPRINT_ACQUIRED_INSUFFICIENT;
+                break;
+            }
+        };
+#ifdef USE_FPC_TAMA
+        int rc = fpc_deep_sleep(data);
+        ALOGE_IF(rc, "Sensor deep sleep failed: %d", rc);
+        // Do not return rc, return the code from above instead.
+#endif
     } else {
         ret = 1000;
 
@@ -494,11 +568,10 @@ err_t fpc_auth_end(fpc_imp_data_t __unused *data)
 }
 
 
-fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
+err_t fpc_get_print_index(fpc_imp_data_t *data, fpc_fingerprint_index_t *idx_data)
 {
     ALOGV(__func__);
     fpc_data_t *ldata = (fpc_data_t*)data;
-    fpc_fingerprint_index_t idx_data = {};
     fpc_fingerprint_list_t cmd = {
         .group_id = FPC_GROUP_TEMPLATE,
         .cmd_id = FPC_GET_FINGERPRINTS,
@@ -507,19 +580,20 @@ fpc_fingerprint_index_t fpc_get_print_index(fpc_imp_data_t *data)
     unsigned int i;
 
     int ret = send_custom_cmd(ldata, &cmd, sizeof(cmd));
-    if(ret < 0 || cmd.status != 0)
-    {
-        ALOGE("Error retrieving fingerprints: rc = %d, status = %d", ret, cmd.status);
+    if(ret < 0 || cmd.status != 0) {
+        ALOGE("Failed to retrieve fingerprints: rc = %d, status = %d", ret, cmd.status);
+        return -EINVAL;
+    } else if (cmd.length > MAX_FINGERPRINTS) {
+        ALOGE("FPC_GET_FINGERPRINTS Returned more than MAX_FINGERPRINTS: %u", idx_data->print_count);
+        return -EINVAL;
     }
 
     ALOGI("Found %d fingerprints", cmd.length);
-    idx_data.print_count = cmd.length;
-    for(i=0; i< cmd.length; i++)
-    {
-        idx_data.prints[i] = cmd.fingerprints[i];
-    }
+    idx_data->print_count = cmd.length;
+    for(i = 0; i < cmd.length; i++)
+        idx_data->prints[i] = cmd.fingerprints[i];
 
-    return idx_data;
+    return 0;
 }
 
 
@@ -604,15 +678,34 @@ err_t fpc_update_template(fpc_imp_data_t *data)
     return -1;
 }
 
-err_t fpc_deep_sleep(fpc_imp_data_t *data) {
+err_t fpc_deep_sleep(fpc_imp_data_t *data)
+{
     err_t result;
     fpc_data_t *ldata = (fpc_data_t*)data;
 
     result = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_DEEP_SLEEP);
 
-    ALOGI("Deep Sleep Result: %d\n", result);
+    ALOGV("Deep Sleep Result: %d", result);
 
     return result;
+}
+
+err_t fpc_sensor_wake(fpc_imp_data_t *data)
+{
+#ifdef USE_FPC_TAMA
+    int ret;
+    fpc_data_t *ldata = (fpc_data_t *)data;
+
+    ret = send_normal_command(ldata, FPC_GROUP_SENSOR, FPC_SENSOR_WAKE);
+    // NOTE: Seems to return 0 when a finger is on, 1 otherwise.
+    ALOGE_IF(ret < 0, "SENSOR_WAKE failed, rc=%d", ret);
+    if (ret < 0)
+        return ret;
+    ALOGV("%s: returned %d", __func__, ret);
+#else
+    (void)data;
+#endif
+    return 0;
 }
 
 err_t fpc_close(fpc_imp_data_t **data)
@@ -621,6 +714,8 @@ err_t fpc_close(fpc_imp_data_t **data)
     fpc_data_t *ldata = (fpc_data_t*)*data;
 
     fpc_deep_sleep(*data);
+
+    fpc_event_destroy(&ldata->data.event);
 
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
     if (fpc_set_power(&(*data)->event, FPC_PWROFF) < 0) {
