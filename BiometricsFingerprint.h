@@ -112,6 +112,7 @@ private:
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     sony_fingerprint_device_t *mDevice;
+    uint64_t auth_challenge;
 };
 
 }  // namespace fpc

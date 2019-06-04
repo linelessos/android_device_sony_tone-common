@@ -270,6 +270,7 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
 
     ALOGI("%s: operation_id=%ju", __func__, operation_id);
     r = fpc_set_auth_challenge(sdev->fpc, operation_id);
+    auth_challenge = operation_id;
     if (r < 0) {
         ALOGE("%s: Error setting auth challenge to %ju. r=0x%08X",__func__, operation_id, r);
         return RequestStatus::SYS_EAGAIN;
@@ -579,14 +580,25 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
                         if (result) ALOGE("Error storing database: %d", result);
                     }
 
-                    fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
+                    if (auth_challenge) {
+                        fpc_get_hw_auth_obj(sdev->fpc, &hat, sizeof(hw_auth_token_t));
 
-                    ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
-                    ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
-                    ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
-                    ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
-                    ALOGI("%s : hat->timestamp %lu", __func__, bswap_64(hat.timestamp));
-                    ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
+                        ALOGW_IF(auth_challenge != hat.challenge,
+                                "Local auth challenge %ju does not match hat challenge %ju",
+                                auth_challenge, hat.challenge);
+
+                        ALOGI("%s : hat->challenge %ju", __func__, hat.challenge);
+                        ALOGI("%s : hat->user_id %ju", __func__, hat.user_id);
+                        ALOGI("%s : hat->authenticator_id %ju",  __func__, hat.authenticator_id);
+                        ALOGI("%s : hat->authenticator_type %u", __func__, ntohl(hat.authenticator_type));
+                        ALOGI("%s : hat->timestamp %lu", __func__, bswap_64(hat.timestamp));
+                        ALOGI("%s : hat size %zu", __func__, sizeof(hw_auth_token_t));
+                    } else {
+                        // Without challenge, there's no reason to bother the TZ to
+                        // provide an "invalid" response token.
+                        ALOGD("No authentication challenge set. Reporting empty HAT");
+                        memset(&hat, 0, sizeof(hat));
+                    }
 
                     fid = print_id;
 
