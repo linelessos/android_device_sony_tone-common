@@ -64,12 +64,10 @@ typedef struct {
 } fpc_thread_t;
 
 typedef struct {
-    fingerprint_device_t device;  // "inheritance"
     fpc_thread_t worker;
     fpc_imp_data_t *fpc;
     uint32_t gid;
     char db_path[255];
-    pthread_mutex_t lock;
     uint64_t challenge;
 } sony_fingerprint_device_t;
 
@@ -99,15 +97,17 @@ private:
     static BiometricsFingerprint* sInstance;
 
     // Internal machinery to set the active group
-    static int __setActiveGroup(sony_fingerprint_device_t *sdev, uint32_t gid);
+    int __setActiveGroup(uint32_t gid);
 
     //Auth / Enroll thread functions
+    bool startWorker();
+    enum worker_state getNextState();
+    bool isEventAvailable();
+    bool setState(enum worker_state state);
     static void * worker_thread(void *args);
-    static enum worker_state getNextState(sony_fingerprint_device_t* sdev);
-    static bool isEventAvailable(sony_fingerprint_device_t *sdev);
-    static bool setState(sony_fingerprint_device_t* sdev, enum worker_state state);
-    void process_enroll(sony_fingerprint_device_t *sdev);
-    void process_auth(sony_fingerprint_device_t *sdev);
+    void workerThread();
+    void processEnroll();
+    void processAuth();
 
     std::mutex mClientCallbackMutex;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
