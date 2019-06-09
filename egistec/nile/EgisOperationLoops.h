@@ -1,10 +1,12 @@
 #pragma once
 
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprintClientCallback.h>
+#include <egistec/EgisFpDevice.h>
 #include <sys/eventfd.h>
 #include <mutex>
 #include "EGISAPTrustlet.h"
-#include "EgisFpDevice.h"
+
+namespace egistec::nile {
 
 using ::android::sp;
 using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
@@ -106,3 +108,5 @@ class EgisOperationLoops : public EGISAPTrustlet {
     int Enroll(const hw_auth_token_t &, uint32_t timeoutSec);
     int Authenticate(uint64_t challenge);
 };
+
+}  // namespace egistec::nile

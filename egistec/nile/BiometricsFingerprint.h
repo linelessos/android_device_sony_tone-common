@@ -6,18 +6,14 @@
 
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 
+#include <QSEEKeymasterTrustlet.h>
 #include <array>
 #include "EgisOperationLoops.h"
-#include "QSEEKeymasterTrustlet.h"
 
-namespace android {
-namespace hardware {
-namespace biometrics {
-namespace fingerprint {
-namespace V2_1 {
-namespace implementation {
+namespace egistec::nile {
 
 using ::android::sp;
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
@@ -26,9 +22,9 @@ using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprintClientCallback;
 using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
-struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
+struct BiometricsFingerprint : public IBiometricsFingerprint {
    public:
-    BiometricsFingerprint_efp(EgisFpDevice &&);
+    BiometricsFingerprint(EgisFpDevice &&);
 
     // Methods from ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint follow.
     Return<uint64_t> setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) override;
@@ -48,9 +44,4 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
     EgisOperationLoops loops;
 };
 
-}  // namespace implementation
-}  // namespace V2_1
-}  // namespace fingerprint
-}  // namespace biometrics
-}  // namespace hardware
-}  // namespace android
+}  // namespace egistec::nile

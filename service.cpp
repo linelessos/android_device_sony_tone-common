@@ -19,7 +19,8 @@
 #include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportSupport.h>
 #include "BiometricsFingerprint.h"
-#include "BiometricsFingerprint_efp.h"
+#include "egistec/ganges/BiometricsFingerprint.h"
+#include "egistec/nile/BiometricsFingerprint.h"
 
 using android::NO_ERROR;
 using android::sp;
@@ -27,30 +28,38 @@ using android::status_t;
 using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
-using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint;
-using android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint_efp;
+
+using FPCHAL = android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint;
+using NileHAL = ::egistec::nile::BiometricsFingerprint;
+using GangesHAL = ::egistec::ganges::BiometricsFingerprint;
 
 int main() {
     android::sp<IBiometricsFingerprint> bio;
+
+#if defined(USE_FPC_NILE) || defined(USE_FPC_GANGES)
+    ::egistec::EgisFpDevice dev;
+#endif
+
 #ifdef USE_FPC_NILE
-    EgisFpDevice dev;
     auto type = dev.GetHwId();
 
     switch (type) {
-        case FpHwId::Egistec:
+        case egistec::FpHwId::Egistec:
             ALOGI("Egistec sensor installed");
-            bio = new BiometricsFingerprint_efp(std::move(dev));
+            bio = new NileHAL(std::move(dev));
             break;
-        case FpHwId::Fpc:
+        case egistec::FpHwId::Fpc:
             ALOGI("FPC sensor installed");
-            bio = BiometricsFingerprint::getInstance();
+            bio = FPCHAL::getInstance();
             break;
         default:
             ALOGE("No HAL instance defined for hardware type %d", type);
             return 1;
     }
+#elif defined(USE_FPC_GANGES)
+    bio = new GangesHAL(std::move(dev));
 #else
-    bio = BiometricsFingerprint::getInstance();
+    bio = FPCHAL::getInstance();
 #endif
 
     configureRpcThreadpool(1, true /*callerWillJoin*/);

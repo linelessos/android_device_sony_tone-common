@@ -13,20 +13,35 @@ LOCAL_SRC_FILES := \
 
 ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_loire_tone.c
+HAS_FPC := true
 endif
 
 ifeq ($(filter-out yoshino,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
+HAS_FPC := true
 endif
 
 ifeq ($(filter-out nile,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
+HAS_FPC := true
 LOCAL_CFLAGS += -DUSE_FPC_NILE
 endif
 
 ifeq ($(filter-out tama,$(SOMC_PLATFORM)),)
 LOCAL_SRC_FILES += fpc_imp_yoshino_nile_tama.c
+HAS_FPC := true
 LOCAL_CFLAGS += -DUSE_FPC_TAMA
+endif
+
+ifeq ($(filter-out ganges,$(SOMC_PLATFORM)),)
+LOCAL_CFLAGS += -DUSE_FPC_GANGES
+endif
+
+ifneq ($(HAS_FPC),true)
+# This file heavily depends on fpc_ implementations from the
+# above fpc_imp_* files. There is no sensible default file
+# on some platforms, so just remove the file altogether:
+LOCAL_SRC_FILES -= BiometricsFingerprint.cpp
 endif
 
 LOCAL_SHARED_LIBRARIES := \

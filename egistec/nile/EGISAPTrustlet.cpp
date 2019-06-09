@@ -6,6 +6,8 @@
 // #define LOG_NDEBUG 0
 #include <log/log.h>
 
+namespace egistec::nile {
+
 void log_hex(const char *data, int length) {
     if (length <= 0 || data == NULL)
         return;
@@ -304,3 +306,5 @@ int EGISAPTrustlet::SetMasterKey(const MasterKey &key) {
 
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetMasterKey);
 }
+
+}  // namespace egistec::nile

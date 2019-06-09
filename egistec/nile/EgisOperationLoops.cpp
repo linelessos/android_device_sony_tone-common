@@ -17,6 +17,8 @@
 #define LOG_NDEBUG 0
 #include <log/log.h>
 
+namespace egistec::nile {
+
 using ::android::hardware::hidl_vec;
 
 EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : mDeviceId(deviceId), mDev(std::move(dev)), mAuthenticatorId(GetRand64()) {
@@ -760,3 +762,5 @@ error:
     NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
     return rc;
 }
+
+}  // namespace egistec::nile
