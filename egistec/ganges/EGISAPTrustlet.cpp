@@ -50,49 +50,20 @@ void log_hex(const char *data, int length) {
 EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", 0x2400) {
 }
 
-int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
+int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &api) {
     // TODO: += !
-    lockedBuffer.GetRequest().process = 0xe0;
+    api.GetRequest().process = 0xe0;
+    auto &base = api.PrepareBase(api.GetRequest().process);
 
-    struct __attribute__((__packed__)) APIPrefix {
-        uint32_t process_id;
-        uint32_t no_extra_buffer;
-        uint32_t a;
-        uint32_t extra_buffer_size;
-        union {
-            uint64_t b;
-            struct {
-                uint32_t ret_val;
-            };
-        };
-        union {
-            uint64_t c;
-            struct {
-                uint32_t c2;
-                // TODO: Could be little-endian
-                uint8_t extra_flags;
-            };
-        };
-    };
-    static_assert(offsetof(APIPrefix, extra_buffer_size) == 0xc, "");
-    static_assert(offsetof(APIPrefix, b) == 0x10, "");
-    static_assert(offsetof(APIPrefix, ret_val) == 0x10, "");
-    static_assert(offsetof(APIPrefix, c) == 0x18, "");
-    static_assert(offsetof(APIPrefix, extra_flags) == 0x1c, "");
-    auto prefix = reinterpret_cast<APIPrefix *>(*lockedBuffer.mLockedBuffer);
-    // TODO: Replace with memset?
-    prefix->process_id = lockedBuffer.GetRequest().process;
-    prefix->b = 0;
-    prefix->c = 0;
-
-    prefix->no_extra_buffer = 0;
-    prefix->extra_buffer_size = 0;
+    // Already covered by memset:
+    // base.no_extra_buffer = 0;
+    // base.extra_buffer_size = 0;
 
 #if !LOG_NDEBUG
-    log_hex(reinterpret_cast<const char *>(&lockedBuffer.GetRequest()), sizeof(trustlet_buffer_t));
+    log_hex(reinterpret_cast<const char *>(&api.GetRequest()), sizeof(trustlet_buffer_t));
 #endif
 
-    int rc = QSEETrustlet::SendCommand(prefix, 0x880, prefix, 0x840);
+    int rc = QSEETrustlet::SendCommand(&base, 0x880, &base, 0x840);
     if (rc) {
         ALOGE("%s failed with rc = %d", __func__, rc);
         return rc;
@@ -100,17 +71,11 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
 
 #if !LOG_NDEBUG
     ALOGV("Response:");
-    log_hex(reinterpret_cast<const char *>(&lockedBuffer.GetResponse()), sizeof(trustlet_buffer_t));
+    log_hex(reinterpret_cast<const char *>(&api.GetResponse()), sizeof(trustlet_buffer_t));
 #endif
 
-    // struct  __attribute__((__packed__)) APIResponse {
-    //     uint64_t padding[2];
-    //     uint32_t ret_val;
-    //     char data[];
-    // };
-
     // TODO: List expected response codes in an enum.
-    rc = prefix->ret_val;
+    rc = base.ret_val;
     ALOGE_IF(rc, "%s ret_val = %#x", __func__, rc);
     return rc;
 }
@@ -124,6 +89,55 @@ int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &buffer, CommandId commandId
 int EGISAPTrustlet::SendCommand(CommandId commandId, uint32_t gid) {
     auto api = GetLockedAPI();
     return SendCommand(api, commandId, gid);
+}
+
+int EGISAPTrustlet::SendModifiedCommand(EGISAPTrustlet::API &api, IonBuffer &ionBuffer) {
+    // TODO: += !
+    api.GetRequest().process = 0xe0;
+    auto &base = api.PrepareBase(api.GetRequest().process);
+
+    QSEECom_ion_fd_info ifd_data = {};
+
+    base.extra_buffer_size = ionBuffer.requestedSize();
+    base.extra_flags = 0x5a;
+    ifd_data.data[0] = {ionBuffer.fd(), 4};
+    // TODO: Return buffer??
+    ifd_data.data[1] = {ionBuffer.fd(), 8};
+
+#if !LOG_NDEBUG
+    log_hex(reinterpret_cast<const char *>(&api.GetRequest()), sizeof(trustlet_buffer_t));
+#endif
+
+    int rc = QSEETrustlet::SendModifiedCommand(&base, 0x880, &base, 0x840, &ifd_data);
+    if (rc) {
+        ALOGE("%s failed with rc = %d", __func__, rc);
+        return rc;
+    }
+
+#if !LOG_NDEBUG
+    ALOGV("Response:");
+    log_hex(reinterpret_cast<const char *>(&api.GetResponse()), sizeof(trustlet_buffer_t));
+#endif
+
+    // Return size of the extra buffer:
+    size_t returnSize = base.extra_buffer_size;
+    ALOGD("Extra buffer return size: %zu", returnSize);
+
+    // TODO: List expected response codes in an enum.
+    rc = base.ret_val;
+    ALOGE_IF(rc, "%s ret_val = %#x", __func__, rc);
+    return rc;
+}
+
+int EGISAPTrustlet::SendModifiedCommand(EGISAPTrustlet::API &api, IonBuffer &ionBuffer, CommandId commandId, uint32_t gid) {
+    api.GetRequest().command = commandId;
+    api.GetRequest().gid = gid;
+    return SendModifiedCommand(api, ionBuffer);
+}
+
+int EGISAPTrustlet::SendModifiedCommand(IonBuffer &ionBuffer, CommandId commandId, uint32_t gid) {
+    auto api = GetLockedAPI();
+    return SendModifiedCommand(api, ionBuffer, commandId, gid);
 }
 
 int EGISAPTrustlet::SendDataCommand(EGISAPTrustlet::API &buffer, CommandId commandId, const void *data, size_t length, uint32_t gid) {
@@ -152,6 +166,37 @@ int EGISAPTrustlet::Calibrate() {
     return SendCommand(CommandId::Calibrate);
 }
 
+int EGISAPTrustlet::GetPrintIds(uint32_t gid, std::vector<uint32_t> &list) {
+    struct print_ids_t {
+        uint32_t ids[5];
+        uint32_t num_prints;
+    };
+
+    TypedIonBuffer<print_ids_t> prints;
+    auto api = GetLockedAPI();
+
+    int rc = SendModifiedCommand(api, prints, CommandId::GetPrintIds, gid);
+    if (rc)
+        return rc;
+
+    LOG_ALWAYS_FATAL_IF(api.Base().extra_buffer_size != sizeof(print_ids_t),
+                        "%s: did not return exactly sizeof(print_ids_t) bytes!",
+                        __func__);
+
+    ALOGD("GetFingerList reported %d fingers", prints->num_prints);
+
+    list.clear();
+    list.resize(prints->num_prints);
+    std::copy(prints->ids,
+              prints->ids + prints->num_prints,
+              std::back_inserter(list));
+
+    for (auto p : list)
+        ALOGD("Print: %u", p);
+
+    return 0;
+}
+
 int EGISAPTrustlet::InitializeAlgo() {
     return SendCommand(CommandId::InitializeAlgo);
 }
@@ -178,7 +223,22 @@ int EGISAPTrustlet::SetWorkMode(uint32_t workMode) {
 }
 
 uint64_t EGISAPTrustlet::GetAuthenticatorId() {
-    return -1;
+    TypedIonBuffer<uint64_t> id;
+    auto api = GetLockedAPI();
+
+    int rc = SendModifiedCommand(api, id, CommandId::GetAuthenticatorId);
+    LOG_ALWAYS_FATAL_IF(rc, "Failed to get authenticator id!");
+
+    // Nothing is returned when no prints are set up:
+    ALOGW_IF(api.Base().extra_buffer_size != sizeof(uint64_t),
+             "%s: did not return exactly sizeof(uint64_t) bytes!",
+             __func__);
+    if (api.Base().extra_buffer_size != sizeof(uint64_t))
+        return -1;
+
+    ALOGI("%s: id=%#lx", __func__, *id);
+
+    return *id;
 }
 
 }  // namespace egistec::ganges

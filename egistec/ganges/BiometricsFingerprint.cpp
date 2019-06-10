@@ -7,9 +7,11 @@
 namespace egistec::ganges {
 
 BiometricsFingerprint::BiometricsFingerprint(EgisFpDevice &&dev) : mDev(std::move(dev)) {
-    DeviceEnableGuard<EgisFpDevice> guard{mDev};
     QSEEKeymasterTrustlet keymaster;
     int rc = 0;
+
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
+    mDev.Enable();
 
     mMasterKey = keymaster.GetKey();
 
@@ -93,7 +95,24 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 }
 
 Return<RequestStatus> BiometricsFingerprint::enumerate() {
-    return RequestStatus::SYS_EFAULT;
+    std::vector<uint32_t> fids;
+    int rc = mTrustlet.GetPrintIds(mGid, fids);
+    if (rc)
+        return RequestStatus::SYS_EINVAL;
+
+    auto remaining = fids.size();
+    ALOGD("Enumerating %zu fingers", remaining);
+
+    std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+    if (!remaining)
+        // If no fingerprints exist, notify that the enumeration is done with remaining=0.
+        // Use fid=0 to indicate that this is not a fingerprint.
+        mClientCallback->onEnumerate(reinterpret_cast<uint64_t>(this), 0, mGid, 0);
+    else
+        for (auto fid : fids)
+            mClientCallback->onEnumerate(reinterpret_cast<uint64_t>(this), fid, mGid, --remaining);
+
+    return RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) {

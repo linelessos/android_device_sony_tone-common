@@ -1,5 +1,6 @@
 #pragma once
 
+#include <IonBuffer.h>
 #include <arpa/inet.h>
 #include <hardware/hw_auth_token.h>
 #include <string.h>
@@ -18,7 +19,7 @@ enum class CommandId : uint32_t {
 
     GetPrintIds = 0x16,
     SetWorkMode = 0x17,
-    SetUserDataPath = 0x19,
+    SetUserDataPath = 0x18,
     SetDataPath = 0x19,
     GetAuthenticatorId = 0x20,
 };
@@ -36,6 +37,28 @@ typedef struct {
 } trustlet_buffer_t;
 
 static_assert(sizeof(trustlet_buffer_t) == 0x14, "trustlet_buffer_t not of expected size!");
+
+typedef struct {
+    uint32_t process_id;
+    uint32_t no_extra_buffer;
+    uint32_t unk0;
+    uint32_t extra_buffer_size;
+    uint32_t ret_val;
+    union {
+        struct {
+            uint32_t unk1;
+            uint32_t unk2;
+            uint32_t extra_flags;
+        };
+        char data[];
+    };
+} base_transaction_t;
+
+static_assert(sizeof(base_transaction_t) == 0x20, "");
+static_assert(offsetof(base_transaction_t, extra_buffer_size) == 0xc, "");
+static_assert(offsetof(base_transaction_t, ret_val) == 0x10, "");
+static_assert(offsetof(base_transaction_t, data) == 0x14, "");
+static_assert(offsetof(base_transaction_t, extra_flags) == 0x1c, "");
 
 class EGISAPTrustlet : public QSEETrustlet {
    protected:
@@ -59,6 +82,17 @@ class EGISAPTrustlet : public QSEETrustlet {
             return *reinterpret_cast<trustlet_buffer_t *>((ptrdiff_t)*mLockedBuffer + ResponseOffset);
         }
 
+        inline base_transaction_t &Base() {
+            return *reinterpret_cast<base_transaction_t *>(*mLockedBuffer);
+        }
+
+        inline base_transaction_t &PrepareBase(uint32_t process) {
+            auto &base = Base();
+            memset(&base, 0, sizeof(base));
+            base.process_id = process;
+            return base;
+        }
+
         inline void MoveResponseToRequest() {
             memmove(&GetRequest(), &GetResponse(), sizeof(trustlet_buffer_t));
         }
@@ -76,11 +110,15 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SendCommand(API &);
     int SendCommand(API &, CommandId, uint32_t gid = 0);
     int SendCommand(CommandId, uint32_t gid = 0);
+    int SendModifiedCommand(API &, IonBuffer &);
+    int SendModifiedCommand(API &, IonBuffer &, CommandId, uint32_t gid = 0);
+    int SendModifiedCommand(IonBuffer &, CommandId, uint32_t gid = 0);
     int SendDataCommand(API &, CommandId, const void *data, size_t length, uint32_t gid = 0);
     int SendDataCommand(CommandId, const void *data, size_t length, uint32_t gid = 0);
     API GetLockedAPI();
 
     int Calibrate();
+    int GetPrintIds(uint32_t gid, std::vector<uint32_t> &);
     int InitializeAlgo();
     int InitializeSensor();
     int SetDataPath(const char *);
