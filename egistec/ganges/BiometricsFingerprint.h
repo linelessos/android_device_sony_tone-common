@@ -8,6 +8,7 @@
 
 #include <egistec/EgisFpDevice.h>
 #include <array>
+#include "EGISAPTrustlet.h"
 #include "QSEEKeymasterTrustlet.h"
 
 namespace egistec::ganges {
@@ -39,6 +40,7 @@ struct BiometricsFingerprint : public IBiometricsFingerprint {
     Return<RequestStatus> authenticate(uint64_t operationId, uint32_t gid) override;
 
    private:
+    EGISAPTrustlet mTrustlet;
     EgisFpDevice mDev;
     MasterKey mMasterKey;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;

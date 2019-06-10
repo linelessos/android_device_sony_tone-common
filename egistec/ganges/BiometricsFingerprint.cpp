@@ -1,5 +1,4 @@
 #include "BiometricsFingerprint.h"
-#include <hardware/hw_auth_token.h>
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
@@ -8,16 +7,32 @@
 namespace egistec::ganges {
 
 BiometricsFingerprint::BiometricsFingerprint(EgisFpDevice &&dev) : mDev(std::move(dev)) {
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
     QSEEKeymasterTrustlet keymaster;
+    int rc = 0;
+
     mMasterKey = keymaster.GetKey();
 
-    // int rc = loops.Prepare();
-    // if (rc)
-    //     throw FormatException("Prepare failed with rc = %d", rc);
+    rc = mTrustlet.SetDataPath("/data/system/users/0/fpdata");
+    LOG_ALWAYS_FATAL_IF(rc, "SetDataPath failed with rc = %d", rc);
 
-    // rc = loops.SetMasterKey(mMasterKey);
-    // if (rc)
-    //     throw FormatException("SetMasterKey failed with rc = %d", rc);
+    rc = mTrustlet.SetMasterKey(mMasterKey);
+    LOG_ALWAYS_FATAL_IF(rc, "SetMasterKey failed with rc = %d", rc);
+
+    rc = mTrustlet.InitializeSensor();
+    LOG_ALWAYS_FATAL_IF(rc, "InitializeSensor failed with rc = %d", rc);
+
+    rc = mTrustlet.InitializeAlgo();
+    LOG_ALWAYS_FATAL_IF(rc, "InitializeAlgo failed with rc = %d", rc);
+
+    rc = mTrustlet.Calibrate();
+    LOG_ALWAYS_FATAL_IF(rc, "Calibrate failed with rc = %d", rc);
+
+    // TODO: From thread
+    // Power saving?
+    rc = mTrustlet.SetWorkMode(2);
+    if (rc)
+        throw FormatException("SetWorkMode failed with rc = %d", rc);
 }
 
 Return<uint64_t> BiometricsFingerprint::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
@@ -65,11 +80,9 @@ Return<RequestStatus> BiometricsFingerprint::postEnroll() {
 }
 
 Return<uint64_t> BiometricsFingerprint::getAuthenticatorId() {
-    // TODO:
-    auto id = -1ul;
+    auto id = mTrustlet.GetAuthenticatorId();
     ALOGI("%s: id = %lu", __func__, id);
     return id;
-    // return loops.GetAuthenticatorId();
 }
 
 Return<RequestStatus> BiometricsFingerprint::cancel() {
@@ -81,7 +94,6 @@ Return<RequestStatus> BiometricsFingerprint::cancel() {
 
 Return<RequestStatus> BiometricsFingerprint::enumerate() {
     return RequestStatus::SYS_EFAULT;
-    // return loops.Enumerate() ? RequestStatus::SYS_UNKNOWN : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) {
@@ -97,9 +109,8 @@ Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) 
 Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
     ALOGI("%s: gid = %u, path = %s", __func__, gid, storePath.c_str());
     mGid = gid;
-    return RequestStatus::SYS_EFAULT;
-    // int rc = loops.SetUserDataPath(mGid, storePath.c_str());
-    // return rc ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
+    int rc = mTrustlet.SetUserDataPath(gid, storePath.c_str());
+    return rc ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operationId, uint32_t gid) {
