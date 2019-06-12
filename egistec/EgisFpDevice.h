@@ -46,7 +46,7 @@ class EgisFpDevice {
      */
     int Disable() const;
     bool WaitInterrupt(int timeout = -1) const;
-    int GetDescriptor() const;
+    int GetFd() const;
 
     // TODO: Move/abstract this if we ever get more
     // platforms with multiple sensor types.

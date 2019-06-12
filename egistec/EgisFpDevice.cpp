@@ -60,7 +60,7 @@ bool EgisFpDevice::WaitInterrupt(int timeout) const {
     return rc && pfd.revents & POLLIN;
 }
 
-int EgisFpDevice::GetDescriptor() const {
+int EgisFpDevice::GetFd() const {
     return mFd;
 }
 
