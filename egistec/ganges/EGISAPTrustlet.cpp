@@ -298,6 +298,9 @@ int EGISAPTrustlet::Enroll(uint32_t gid, uint32_t fid, enroll_result_t &result) 
  * chosen id is available.
  */
 int EGISAPTrustlet::GetNewPrintId(uint32_t gid, uint32_t &new_print_id) {
+    // Use a seed other than the default 1:
+    srand(clock());
+
     std::vector<uint32_t> prints;
     int rc = GetPrintIds(gid, prints);
     if (rc)
