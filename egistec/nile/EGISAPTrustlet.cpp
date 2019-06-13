@@ -259,7 +259,7 @@ int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
     if (rc)
         return rc;
     list.clear();
-    list.resize(extraIn.number_of_prints);
+    list.reserve(extraIn.number_of_prints);
     ALOGD("GetFingerList reported %d fingers", extraOut.number_of_prints);
     std::copy(extraOut.finger_list, extraOut.finger_list + extraOut.number_of_prints, std::back_inserter(list));
     return 0;
