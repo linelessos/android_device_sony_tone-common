@@ -6,6 +6,7 @@
 
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 
+#include <WorkerThread.h>
 #include <egistec/EgisFpDevice.h>
 #include <array>
 #include "EGISAPTrustlet.h"
@@ -19,11 +20,13 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintError;
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprintClientCallback;
 using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
-struct BiometricsFingerprint : public IBiometricsFingerprint {
+struct BiometricsFingerprint : public IBiometricsFingerprint, public WorkHandler {
    public:
     BiometricsFingerprint(EgisFpDevice &&);
 
@@ -45,7 +48,22 @@ struct BiometricsFingerprint : public IBiometricsFingerprint {
     MasterKey mMasterKey;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     std::mutex mClientCallbackMutex;
-    uint32_t mGid;
+    uint32_t mGid = -1;
+    WorkerThread mWt;
+
+    int mEnrollTimeout = -1;
+    uint32_t mNewPrintId = -1;
+    uint64_t mEnrollChallenge = 0;
+
+    // WorkHandler implementations:
+    void AuthenticateAsync();
+    void EnrollAsync();
+
+    void NotifyAcquired(FingerprintAcquiredInfo);
+    void NotifyAuthenticated(uint32_t fid, const hw_auth_token_t &hat);
+    void NotifyEnrollResult(uint32_t fid, uint32_t remaining);
+    void NotifyError(FingerprintError);
+    void NotifyRemove(uint32_t fid, uint32_t remaining);
 };
 
 }  // namespace egistec::ganges

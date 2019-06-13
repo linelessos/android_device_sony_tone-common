@@ -186,7 +186,7 @@ int EGISAPTrustlet::GetPrintIds(uint32_t gid, std::vector<uint32_t> &list) {
     ALOGD("GetFingerList reported %d fingers", prints->num_prints);
 
     list.clear();
-    list.resize(prints->num_prints);
+    list.reserve(prints->num_prints);
     std::copy(prints->ids,
               prints->ids + prints->num_prints,
               std::back_inserter(list));
@@ -239,6 +239,103 @@ uint64_t EGISAPTrustlet::GetAuthenticatorId() {
     ALOGI("%s: id=%#lx", __func__, *id);
 
     return *id;
+}
+
+int EGISAPTrustlet::GetImage(ImageResult &quality) {
+    TypedIonBuffer<ImageResult> ionBuffer;
+    int rc = SendModifiedCommand(ionBuffer, CommandId::GetImage);
+    if (rc)
+        return rc;
+    quality = *ionBuffer;
+    ALOGD("GetImage quality = %d", quality);
+    return 0;
+}
+
+int EGISAPTrustlet::IsFingerLost(uint32_t timeout, ImageResult &status) {
+    TypedIonBuffer<ImageResult> ionBuffer;
+    // WARNING: timeout doesn't seem to change anything in terms of blocking.
+    int rc = SendModifiedCommand(ionBuffer, CommandId::IsFingerLost, timeout);
+    if (rc)
+        return rc;
+    status = *ionBuffer;
+    ALOGD("IsFingerLost = %d", status);
+    return 0;
+}
+
+int EGISAPTrustlet::SetSpiState(uint32_t on) {
+    int rc = 0;
+    ALOGD("Setting SPI state to %d", on);
+    if (on)
+        rc = SendCommand(CommandId::OpenSpi);
+    else
+        rc = SendCommand(CommandId::CloseSpi);
+    ALOGE_IF(rc, "Failed to set SPI state to %d", rc);
+    return rc;
+}
+
+int EGISAPTrustlet::CheckAuthToken(const hw_auth_token_t &h) {
+    return SendDataCommand(CommandId::CheckAuthToken, &h, sizeof(h));
+}
+
+int EGISAPTrustlet::CheckSecureId(uint32_t gid, uint64_t user_id) {
+    return SendDataCommand(CommandId::CheckSecureId, &user_id, sizeof(user_id), gid);
+}
+
+int EGISAPTrustlet::Enroll(uint32_t gid, uint32_t fid, enroll_result_t &result) {
+    auto api = GetLockedAPI();
+    api.GetRequest().fid = fid;
+    TypedIonBuffer<enroll_result_t> ionBuffer;
+
+    int rc = SendModifiedCommand(api, ionBuffer, CommandId::Enroll, gid);
+    if (rc)
+        return rc;
+    memcpy(&result, ionBuffer(), sizeof(result));
+    return 0;
+}
+
+/**
+ * Returns whether a print can be enrolled, and if the
+ * chosen id is available.
+ */
+int EGISAPTrustlet::GetNewPrintId(uint32_t gid, uint32_t &new_print_id) {
+    std::vector<uint32_t> prints;
+    int rc = GetPrintIds(gid, prints);
+    if (rc)
+        return rc;
+
+    if (prints.size() >= 5)
+        return -2;
+
+    bool match;
+
+    do {
+        match = false;
+        new_print_id = rand();
+
+        ALOGD("%s: Trying %u", __func__, new_print_id);
+
+        for (auto p : prints)
+            if (p == new_print_id) {
+                match = true;
+                break;
+            }
+    } while (match);
+
+    return 0;
+}
+
+int EGISAPTrustlet::InitializeEnroll() {
+    return SendCommand(CommandId::InitializeEnroll);
+}
+
+int EGISAPTrustlet::SaveEnrolledPrint(uint32_t gid, uint64_t fid) {
+    auto api = GetLockedAPI();
+    api.GetRequest().fid = fid;
+    return SendCommand(api, CommandId::SaveEnrolledPrint, gid);
+}
+
+int EGISAPTrustlet::FinalizeEnroll() {
+    return SendCommand(CommandId::FinalizeEnroll);
 }
 
 }  // namespace egistec::ganges

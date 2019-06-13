@@ -17,11 +17,37 @@ enum class CommandId : uint32_t {
     InitializeSensor = 2,
     Calibrate = 6,
 
+    GetImage = 0x8,
+
+    InitializeEnroll = 0xb,
+    Enroll = 0xc,
+    FinalizeEnroll = 0xd,
+    SaveEnrolledPrint = 0xe,
+
     GetPrintIds = 0x16,
     SetWorkMode = 0x17,
     SetUserDataPath = 0x18,
     SetDataPath = 0x19,
+    CheckSecureId = 0x1e,
+    CheckAuthToken = 0x1f,
     GetAuthenticatorId = 0x20,
+
+    IsFingerLost = 0x25,
+
+    OpenSpi = 0x29,
+    CloseSpi = 0x2a,
+};
+
+enum class ImageResult : uint32_t {
+    Good = 0,
+    Detected1 = 1,
+    TooFast = 2,
+    Detected3 = 3,
+    Lost = 6,
+    ImagerDirty = 7,
+    Partial = 8,
+    Nothing = 10,
+    DirtOnSensor = 0xd,
 };
 
 /**
@@ -59,6 +85,19 @@ static_assert(offsetof(base_transaction_t, extra_buffer_size) == 0xc, "");
 static_assert(offsetof(base_transaction_t, ret_val) == 0x10, "");
 static_assert(offsetof(base_transaction_t, data) == 0x14, "");
 static_assert(offsetof(base_transaction_t, extra_flags) == 0x1c, "");
+
+typedef struct {
+    ImageResult status;
+    int percentage;
+    int dx;
+    int dy;
+    int unk0;
+    int score;
+    int unk1;
+    int unk2;
+} enroll_result_t;
+
+static_assert(sizeof(enroll_result_t) == 0x20, "");
 
 class EGISAPTrustlet : public QSEETrustlet {
    protected:
@@ -126,6 +165,19 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SetUserDataPath(uint32_t gid, const char *);
     int SetWorkMode(uint32_t);
     uint64_t GetAuthenticatorId();
+
+    int GetImage(ImageResult &quality);
+    int IsFingerLost(uint32_t timeout, ImageResult &status);
+    int SetSpiState(uint32_t on);
+
+    // Enrolling
+    int CheckAuthToken(const hw_auth_token_t &);
+    int CheckSecureId(uint32_t gid, uint64_t user_id);
+    int Enroll(uint32_t gid, uint32_t fid, enroll_result_t &);
+    int GetNewPrintId(uint32_t gid, uint32_t &new_print_id);
+    int InitializeEnroll();
+    int SaveEnrolledPrint(uint32_t gid, uint64_t fid);
+    int FinalizeEnroll();
 };
 
 }  // namespace egistec::ganges
