@@ -24,6 +24,7 @@ enum class CommandId : uint32_t {
     FinalizeEnroll = 0xd,
     SaveEnrolledPrint = 0xe,
 
+    RemovePrint = 0x15,
     GetPrintIds = 0x16,
     SetWorkMode = 0x17,
     SetUserDataPath = 0x18,
@@ -178,6 +179,8 @@ class EGISAPTrustlet : public QSEETrustlet {
     int InitializeEnroll();
     int SaveEnrolledPrint(uint32_t gid, uint64_t fid);
     int FinalizeEnroll();
+
+    int RemovePrint(uint32_t gid, uint32_t fid);
 };
 
 }  // namespace egistec::ganges

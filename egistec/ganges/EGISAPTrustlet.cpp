@@ -338,4 +338,10 @@ int EGISAPTrustlet::FinalizeEnroll() {
     return SendCommand(CommandId::FinalizeEnroll);
 }
 
+int EGISAPTrustlet::RemovePrint(uint32_t gid, uint32_t fid) {
+    auto api = GetLockedAPI();
+    api.GetRequest().fid = fid;
+    return SendCommand(api, CommandId::RemovePrint, gid);
+}
+
 }  // namespace egistec::ganges

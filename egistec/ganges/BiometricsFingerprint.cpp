@@ -162,8 +162,35 @@ Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) 
         ALOGE("Change group and userpath through setActiveGroup first!");
         return RequestStatus::SYS_EINVAL;
     }
-    return RequestStatus::SYS_EFAULT;
-    // return loops.RemoveFinger(fid) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
+
+    int rc = 0;
+
+    if (fid == 0) {
+        // Delete all fingerprints when fid is zero:
+        ALOGI("Deleting all fingerprints");
+        std::vector<uint32_t> fids;
+        rc = mTrustlet.GetPrintIds(gid, fids);
+        if (!rc) {
+            auto remaining = fids.size();
+            for (auto fid : fids) {
+                rc = mTrustlet.RemovePrint(gid, fid);
+                if (rc)
+                    break;
+                NotifyRemove(fid, --remaining);
+            }
+        }
+    } else {
+        ALOGI("Deleting print %d", fid);
+        rc = mTrustlet.RemovePrint(gid, fid);
+        if (!rc)
+            NotifyRemove(fid, 0);
+    }
+
+    if (rc) {
+        NotifyError(FingerprintError::ERROR_UNABLE_TO_REMOVE);
+        return RequestStatus::SYS_EFAULT;
+    }
+    return RequestStatus::SYS_OK;
 }
 
 Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid, const hidl_string &storePath) {
