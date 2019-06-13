@@ -58,8 +58,9 @@ struct BiometricsFingerprint : public IBiometricsFingerprint, public WorkHandler
     int64_t mOperationId;
 
     // WorkHandler implementations:
-    void AuthenticateAsync();
-    void EnrollAsync();
+    void AuthenticateAsync() override;
+    void EnrollAsync() override;
+    void OnEnterIdle() override;
 
     void NotifyAcquired(FingerprintAcquiredInfo);
     void NotifyAuthenticated(uint32_t fid, const hw_auth_token_t &hat);

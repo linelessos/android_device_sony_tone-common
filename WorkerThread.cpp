@@ -49,25 +49,25 @@ void *WorkerThread::ThreadStart(void *arg) {
 void WorkerThread::RunThread() {
     ALOGD("Async thread up");
     for (;;) {
-        // NOTE: Not using WaitForEvent() here, because we are not interested
-        // in wakeups from the fp device, only in events.
-        struct pollfd pfd = {
-            .fd = event_fd,
-            .events = POLLIN,
-        };
-        int cnt = poll(&pfd, 1, -1);
-        if (cnt <= 0) {
-            ALOGW("Infinite poll returned with %d", cnt);
-            continue;
-        }
-
         auto nextState = ReadState();
         currentState = nextState;
         switch (nextState) {
-            case AsyncState::Idle:
-                // Poll should not return on Idle
-                ALOGW("Unexpected AsyncState::Idle");
+            case AsyncState::Idle: {
+                // Notify the handler, such that it can force a
+                // power-saving mode on the hardware.
+                mHandler->OnEnterIdle();
+
+                // NOTE: Not using WaitForEvent() here, because we are not interested
+                // in wakeups from the fp device, only in events.
+                struct pollfd pfd = {
+                    .fd = event_fd,
+                    .events = POLLIN,
+                };
+                int cnt = poll(&pfd, 1, -1);
+                if (cnt <= 0)
+                    ALOGW("Infinite poll returned with %d", cnt);
                 break;
+            }
             case AsyncState::Cancel:
                 ALOGW("Unexpected AsyncState::Cancel - nothing in progress");
                 break;

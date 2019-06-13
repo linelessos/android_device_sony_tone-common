@@ -73,8 +73,8 @@ class EgisOperationLoops : public EGISAPTrustlet, public WorkHandler {
 
     // WorkHandler implementations:
     // These should run asynchronously from HAL calls:
-    void EnrollAsync();
-    void AuthenticateAsync();
+    void EnrollAsync() override;
+    void AuthenticateAsync() override;
 
    public:
     uint64_t GetAuthenticatorId();

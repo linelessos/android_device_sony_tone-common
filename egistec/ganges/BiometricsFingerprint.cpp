@@ -29,12 +29,6 @@ BiometricsFingerprint::BiometricsFingerprint(EgisFpDevice &&dev) : mDev(std::mov
 
     rc = mTrustlet.Calibrate();
     LOG_ALWAYS_FATAL_IF(rc, "Calibrate failed with rc = %d", rc);
-
-    // TODO: From thread
-    // Power saving?
-    rc = mTrustlet.SetWorkMode(2);
-    if (rc)
-        throw FormatException("SetWorkMode failed with rc = %d", rc);
 }
 
 Return<uint64_t> BiometricsFingerprint::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
@@ -607,6 +601,12 @@ void BiometricsFingerprint::EnrollAsync() {
         rc = mTrustlet.SaveEnrolledPrint(mGid, mNewPrintId);
         ALOGE_IF(rc, "%s: Failed to save print, rc = %d", __func__, rc);
     }
+}
+
+void BiometricsFingerprint::OnEnterIdle() {
+    // Set the hardware back to idle state:
+    int rc = mTrustlet.SetWorkMode(2);
+    LOG_ALWAYS_FATAL_IF(rc, "SetWorkMode failed with rc = %d", rc);
 }
 
 void BiometricsFingerprint::NotifyAcquired(FingerprintAcquiredInfo acquiredInfo) {

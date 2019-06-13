@@ -19,6 +19,8 @@ enum class WakeupReason {
 struct WorkHandler {
     virtual void AuthenticateAsync() = 0;
     virtual void EnrollAsync() = 0;
+    inline virtual void OnEnterIdle() {
+    }
 
     inline virtual ~WorkHandler() {
     }
