@@ -442,7 +442,7 @@ void EgisOperationLoops::AuthenticateAsync() {
           result.template_cnt,
           result.capture_time,
           result.identify_time);
-    ALOGD("hmac timestamp: %ld secure_user_id: %ld ", result.hmac_timestamp, result.secure_user_id);
+    ALOGD("hmac timestamp: %lu secure_user_id: %lu ", result.hmac_timestamp, result.secure_user_id);
 
     // Finalize challenge buffer by filling in the cryptographic response:
     mCurrentChallenge.timestamp = result.hmac_timestamp;

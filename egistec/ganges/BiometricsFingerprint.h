@@ -55,6 +55,8 @@ struct BiometricsFingerprint : public IBiometricsFingerprint, public WorkHandler
     uint32_t mNewPrintId = -1;
     uint64_t mEnrollChallenge = 0;
 
+    int64_t mOperationId;
+
     // WorkHandler implementations:
     void AuthenticateAsync();
     void EnrollAsync();

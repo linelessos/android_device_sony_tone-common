@@ -3,7 +3,7 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC ET"
-#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #include <log/log.h>
 
 namespace egistec::ganges {
@@ -345,6 +345,61 @@ int EGISAPTrustlet::RemovePrint(uint32_t gid, uint32_t fid) {
     auto api = GetLockedAPI();
     api.GetRequest().fid = fid;
     return SendCommand(api, CommandId::RemovePrint, gid);
+}
+
+int EGISAPTrustlet::FinalizeIdentify() {
+    return SendCommand(CommandId::FinalizeIdentify);
+}
+
+int EGISAPTrustlet::GetEnrolledCount(uint32_t &cnt) {
+    TypedIonBuffer<uint32_t> result;
+    int rc = SendModifiedCommand(result, CommandId::GetEnrolledCount);
+    if (rc)
+        return rc;
+    cnt = *result;
+    return 0;
+}
+
+int EGISAPTrustlet::Identify(uint32_t gid, uint64_t opid, identify_result_t &identify_result) {
+    // Modified command with data.
+    auto api = GetLockedAPI();
+
+    auto &req = api.GetRequest();
+
+    // Set to true if a HAT is passed and needs to be signed.
+    req.fid = opid != 0;
+    ALOGI("Needs signed HAT: %d", req.fid);
+
+    req.buffer_size = sizeof(opid);
+    *reinterpret_cast<uint64_t *>(req.data) = opid;
+
+    TypedIonBuffer<identify_result_t> ionBuffer;
+
+    int rc = SendModifiedCommand(api, ionBuffer, CommandId::Identify, gid);
+    if (rc)
+        return rc;
+
+    memcpy(&identify_result, ionBuffer(), sizeof(identify_result));
+    return 0;
+}
+
+int EGISAPTrustlet::InitializeIdentify() {
+    return SendCommand(CommandId::InitializeIdentify);
+}
+
+int EGISAPTrustlet::SaveTemplate() {
+    return SendCommand(CommandId::SaveTemplate);
+}
+
+int EGISAPTrustlet::UpdateTemplate(bool &updated) {
+    TypedIonBuffer<bool> result;
+    int rc = SendModifiedCommand(result, CommandId::UpdateTemplate);
+    if (rc)
+        return rc;
+
+    ALOGD("Template update success = %d", *result);
+    updated = *result;
+    return 0;
 }
 
 }  // namespace egistec::ganges

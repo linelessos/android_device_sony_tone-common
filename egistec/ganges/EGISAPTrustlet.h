@@ -17,7 +17,14 @@ enum class CommandId : uint32_t {
     InitializeSensor = 2,
     Calibrate = 6,
 
-    GetImage = 0x8,
+    GetImage = 8,
+    GetEnrolledCount = 9,
+
+    InitializeIdentify = 0xf,
+    Identify = 0x10,
+    FinalizeIdentify = 0x11,
+    UpdateTemplate = 0x12,
+    SaveTemplate = 0x13,
 
     InitializeEnroll = 0xb,
     Enroll = 0xc,
@@ -47,7 +54,9 @@ enum class ImageResult : uint32_t {
     Lost = 6,
     ImagerDirty = 7,
     Partial = 8,
+    ImagerDirty9 = 9,
     Nothing = 10,
+    Mediocre = 0xc,
     DirtOnSensor = 0xd,
 };
 
@@ -99,6 +108,24 @@ typedef struct {
 } enroll_result_t;
 
 static_assert(sizeof(enroll_result_t) == 0x20, "");
+
+typedef struct {
+    uint32_t match_id;
+    uint32_t status;
+    uint32_t set_to_1;
+    uint32_t returned_size;
+    uint32_t template_cnt;
+    uint32_t capture_time;
+    uint32_t identify_time;
+    uint32_t score;
+    uint32_t index;
+    uint32_t learn_update;
+    uint32_t noidea;
+    uint32_t cov;
+    uint32_t quality;
+    uint32_t sensor_hwid;
+    hw_auth_token_t hat;
+} identify_result_t;
 
 class EGISAPTrustlet : public QSEETrustlet {
    protected:
@@ -181,6 +208,13 @@ class EGISAPTrustlet : public QSEETrustlet {
     int FinalizeEnroll();
 
     int RemovePrint(uint32_t gid, uint32_t fid);
+
+    int FinalizeIdentify();
+    int GetEnrolledCount(uint32_t &);
+    int Identify(uint32_t gid, uint64_t opid, identify_result_t &);
+    int InitializeIdentify();
+    int SaveTemplate();
+    int UpdateTemplate(bool &updated);
 };
 
 }  // namespace egistec::ganges

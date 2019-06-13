@@ -7,7 +7,7 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC QSEETrustlet"
-#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #include <log/log.h>
 
 #ifndef QSEE_LIBRARY

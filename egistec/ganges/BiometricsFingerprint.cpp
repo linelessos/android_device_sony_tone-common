@@ -207,12 +207,214 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operationId, 
         return RequestStatus::SYS_EINVAL;
     }
 
+    uint32_t cnt = 0;
+    int rc = 0;
+
+    rc = mTrustlet.GetEnrolledCount(cnt);
+    if (rc) {
+        ALOGE("%s: Failed to get finger count, rc = %d", __func__, rc);
+        return RequestStatus::SYS_EFAULT;
+    }
+    ALOGI("%s: Have %d enrolled fingers", __func__, cnt);
+    if (cnt >= 5)
+        return RequestStatus::SYS_ENOSPC;
+
+    mOperationId = operationId;
+
+    if (mWt.MoveToState(AsyncState::Authenticate))
+        return RequestStatus::SYS_OK;
+
     return RequestStatus::SYS_EFAULT;
-    // return loops.Authenticate(operationId) ? RequestStatus::SYS_EINVAL : RequestStatus::SYS_OK;
 }
 
 void BiometricsFingerprint::AuthenticateAsync() {
-    // DeviceEnableGuard<EgisFpDevice> guard{mDev};
+    DeviceEnableGuard<EgisFpDevice> guard{mDev};
+
+    enum IdentifyState {
+        WaitFingerDown = 1,
+        GetImage = 2,
+        Identify = 3,
+        WaitFingerLost = 4,
+    };
+
+    int rc = 0;
+    IdentifyState state = WaitFingerDown;
+    bool done = false, canceled = false, timeout = false;
+
+    bool updated;
+    identify_result_t identify_result;
+    ImageResult image_result;
+    WakeupReason wakeup_reason;
+
+    rc = mTrustlet.InitializeIdentify();
+    if (rc) {
+        ALOGE("%s: Failed to initialize identify, rc = %d", __func__, rc);
+        NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
+        return;
+    }
+
+    while (!done && !rc && !canceled && !timeout) {
+        if (mWt.IsCanceled()) {
+            canceled = true;
+            break;
+        }
+
+        switch (state) {
+            case WaitFingerDown:
+                rc = mTrustlet.SetWorkMode(1);
+                ALOGE_IF(rc, "%s: Failed to set detect mode, rc = %d", __func__, rc);
+                if (rc)
+                    break;
+
+                wakeup_reason = mWt.WaitForEvent();
+                if (wakeup_reason == WakeupReason::Finger) {
+                    state = GetImage;
+                } else if (wakeup_reason == WakeupReason::Timeout) {
+                    timeout = true;
+                }
+                break;
+            case GetImage:
+                rc = mTrustlet.GetImage(image_result);
+
+                ALOGE_IF(rc, "%s: Failed to get image, rc = %d", __func__, rc);
+                if (rc)
+                    break;
+
+                state = WaitFingerLost;
+
+                switch (image_result) {
+                    case ImageResult::Good:
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_GOOD);
+
+                        // Proceed to enroll step:
+                        state = Identify;
+                        break;
+                    case ImageResult::TooFast:
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_TOO_FAST);
+                        break;
+                    case ImageResult::ImagerDirty:
+                    case ImageResult::ImagerDirty9:
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_IMAGER_DIRTY);
+                        usleep(500000);
+                        break;
+                    case ImageResult::Partial:
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_PARTIAL);
+                        break;
+                    case ImageResult::Mediocre:
+                        // This seems to be a mediocre image. Use the result from Identify to determine
+                        // whether this is an accurate match
+                        image_result = ImageResult::ImagerDirty;
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_GOOD);
+                        state = Identify;
+                        break;
+                    default:
+                        state = WaitFingerDown;
+                        break;
+                }
+                break;
+            case Identify:
+                // VSTATE_VERIFY
+                rc = mTrustlet.Identify(mGid, mOperationId, identify_result);
+                if (rc)
+                    break;
+
+                ALOGI("Identify status = %d, match_id = %d",
+                      identify_result.status,
+                      identify_result.match_id);
+
+                if (identify_result.status == 0) {
+                    if (image_result == ImageResult::ImagerDirty) {
+                        ALOGW("%s: Special edgecase: identify 0 (good?), but imager was seemingly dirty...", __func__);
+                        NotifyAcquired(FingerprintAcquiredInfo::ACQUIRED_IMAGER_DIRTY);
+                    } else {
+                        NotifyAuthenticated(identify_result.match_id, identify_result.hat);
+                    }
+                } else if (identify_result.status < 3) {
+                    done = true;
+                }
+
+                rc = mTrustlet.UpdateTemplate(updated);
+                if (rc)
+                    break;
+
+                if (updated) {
+                    rc = mTrustlet.SaveTemplate();
+                    if (rc)
+                        break;
+                }
+
+                state = WaitFingerLost;
+                break;
+            case WaitFingerLost:
+                // VSTATE_FINGER_OFF
+                rc = mTrustlet.SetSpiState(1);
+                if (rc)
+                    break;
+                rc = mTrustlet.IsFingerLost(30, image_result);
+                if (rc)
+                    break;
+
+                if (image_result == ImageResult::Lost) {
+                    rc = mTrustlet.SetSpiState(0);
+                    state = WaitFingerDown;
+                } else {
+                    wakeup_reason = mWt.WaitForEvent();
+                    if (wakeup_reason == WakeupReason::Finger) {
+                        rc = mTrustlet.SetSpiState(0);
+                        state = WaitFingerDown;
+                    } else if (wakeup_reason == WakeupReason::Timeout) {
+                        timeout = true;
+                    }
+                }
+                break;
+        }
+    }
+
+    mTrustlet.SetSpiState(0);
+    rc = mTrustlet.FinalizeIdentify();
+
+    ALOGE_IF(rc, "%s: Failed to finish identify, rc = %d", __func__, rc);
+
+    // Clear challenge:
+    mOperationId = 0;
+
+    if (canceled) {
+        ALOGI("%s: Canceled", __func__);
+        NotifyError(FingerprintError::ERROR_CANCELED);
+    } else if (timeout) {
+        ALOGI("%s: Timeout", __func__);
+        NotifyError(FingerprintError::ERROR_TIMEOUT);
+    } else if (rc) {
+        ALOGI("%s: Finalizing with error %d", __func__, rc);
+        NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
+    } else if (done) {
+        ALOGI("Authentication successful: fid = %d, score = %d",
+              identify_result.match_id,
+              identify_result.score);
+
+        ALOGD(
+            "Authentication match result: hwid=%d, cov=%d, quality=%d, score=%d,"
+            " index=%d, template_cnt=%d, learn_update=%d, capture_time=%d, identify_time=%d",
+            identify_result.sensor_hwid,
+            identify_result.cov,
+            identify_result.quality,
+            identify_result.score,
+            identify_result.index,
+            identify_result.template_cnt,
+            identify_result.learn_update,
+            identify_result.capture_time,
+            identify_result.identify_time);
+
+        if (identify_result.hat.challenge)
+            ALOGD("Result for challenge %lu: hmac timestamp = %lu user_id = %lu ",
+                  identify_result.hat.challenge,
+                  identify_result.hat.timestamp,
+                  identify_result.hat.user_id);
+
+        NotifyAuthenticated(identify_result.match_id, identify_result.hat);
+    } else {
+        ALOGE("Finished enroll without cancel, timeout, rc or successful auth");
+    }
 }
 
 void BiometricsFingerprint::EnrollAsync() {
@@ -247,7 +449,7 @@ void BiometricsFingerprint::EnrollAsync() {
         return;
     }
 
-    while (percentage_done < 100 && !canceled && !rc) {
+    while (percentage_done < 100 && !canceled && !timeout && !rc) {
         if (mWt.IsCanceled()) {
             canceled = true;
             break;
