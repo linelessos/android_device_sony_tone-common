@@ -11,7 +11,7 @@ BiometricsFingerprint::BiometricsFingerprint(EgisFpDevice &&dev) : mDev(std::mov
     int rc = 0;
 
     DeviceEnableGuard<EgisFpDevice> guard{mDev};
-    mDev.Enable();
+    mDev.Reset();
 
     mMasterKey = keymaster.GetKey();
 
@@ -29,6 +29,25 @@ BiometricsFingerprint::BiometricsFingerprint(EgisFpDevice &&dev) : mDev(std::mov
 
     rc = mTrustlet.Calibrate();
     LOG_ALWAYS_FATAL_IF(rc, "Calibrate failed with rc = %d", rc);
+
+    mWt.Start();
+}
+
+BiometricsFingerprint::~BiometricsFingerprint() {
+    int rc = 0;
+
+    rc = mTrustlet.UninitializeSensor();
+    ALOGE_IF(rc, "UninitializeSensor failed with rc = %d", rc);
+
+    rc = mTrustlet.UninitializeAlgo();
+    ALOGE_IF(rc, "UninitializeAlgo failed with rc = %d", rc);
+
+    rc = mTrustlet.UninitializeSdk();
+    ALOGE_IF(rc, "UninitializeSdk failed with rc = %d", rc);
+
+    // Even though DeviceEnableGuard takes care of this, make extra
+    // sure the device is powered down.
+    mDev.Disable();
 }
 
 Return<uint64_t> BiometricsFingerprint::setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) {
@@ -458,17 +477,12 @@ void BiometricsFingerprint::EnrollAsync() {
                     break;
 
                 wakeup_reason = mWt.WaitForEvent(mEnrollTimeout);
-                if (wakeup_reason == WakeupReason::Finger)
+                if (wakeup_reason == WakeupReason::Finger) {
                     finger_state = 1;
-                else if (wakeup_reason == WakeupReason::Timeout) {
+                    state = GetImage;
+                } else if (wakeup_reason == WakeupReason::Timeout) {
                     timeout = true;
-                    break;
-                } else {
-                    break;
                 }
-
-                // Could also be a fallthrough...
-                state = GetImage;
                 break;
             case GetImage:
                 rc = mTrustlet.GetImage(image_result);

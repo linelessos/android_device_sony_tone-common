@@ -8,6 +8,7 @@ enum class AsyncState : eventfd_t {
     Cancel,
     Authenticate,
     Enroll,
+    Stop,
 };
 
 enum class WakeupReason {
@@ -39,6 +40,9 @@ class WorkerThread {
 
    public:
     WorkerThread(WorkHandler *handler, int dev_fd);
+
+    void Start();
+    void Stop();
 
     AsyncState ReadState();
     bool IsCanceled();

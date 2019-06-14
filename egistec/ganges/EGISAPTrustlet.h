@@ -15,6 +15,9 @@ enum class CommandId : uint32_t {
     SetMasterKey = 0,
     InitializeAlgo = 1,
     InitializeSensor = 2,
+    UninitializeSdk = 3,
+    UninitializeAlgo = 4,
+    UninitializeSensor = 5,
     Calibrate = 6,
 
     GetImage = 8,
@@ -192,6 +195,10 @@ class EGISAPTrustlet : public QSEETrustlet {
     int SetMasterKey(const MasterKey &);
     int SetUserDataPath(uint32_t gid, const char *);
     int SetWorkMode(uint32_t);
+    int UninitializeAlgo();
+    int UninitializeSdk();
+    int UninitializeSensor();
+
     uint64_t GetAuthenticatorId();
 
     int GetImage(ImageResult &quality);

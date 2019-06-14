@@ -22,6 +22,7 @@ namespace egistec::nile {
 using ::android::hardware::hidl_vec;
 
 EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : mDeviceId(deviceId), mDev(std::move(dev)), mAuthenticatorId(GetRand64()), mWt(this, mDev.GetFd()) {
+    mWt.Start();
 }
 
 void EgisOperationLoops::ProcessOpcode(const command_buffer_t &cmd) {

@@ -36,8 +36,6 @@ WorkerThread::WorkerThread(WorkHandler *handler, int dev_fd) : dev_fd(dev_fd), m
     };
     rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
     LOG_ALWAYS_FATAL_IF(rc, "Failed to add fingerprint device %d to epoll: %s", dev_fd, strerror(errno));
-
-    thread = std::thread(ThreadStart, this);
 }
 
 void *WorkerThread::ThreadStart(void *arg) {
@@ -77,12 +75,25 @@ void WorkerThread::RunThread() {
             case AsyncState::Enroll:
                 mHandler->EnrollAsync();
                 break;
+            case AsyncState::Stop:
+                ALOGI("Stopping WorkerThread");
+                return;
             default:
                 ALOGW("Unexpected AsyncState %lu", nextState);
                 break;
         }
         currentState = AsyncState::Idle;
     }
+}
+
+void WorkerThread::Start() {
+    thread = std::thread(ThreadStart, this);
+}
+
+void WorkerThread::Stop() {
+    ALOGI("Requesting thread to stop");
+    MoveToState(AsyncState::Stop);
+    thread.join();
 }
 
 AsyncState WorkerThread::ReadState() {
@@ -99,14 +110,14 @@ AsyncState WorkerThread::ReadState() {
 
 bool WorkerThread::IsCanceled() {
     auto state = ReadState();
-    if (state == AsyncState::Cancel)
-        return true;
+    if (state == AsyncState::Idle)
+        return false;
 
-    if (state != AsyncState::Idle)
+    if (state != AsyncState::Cancel && state != AsyncState::Stop)
         // Reading a state consumes it from the eventfd, clearing it.
-        ALOGW("%s: Consumed unexpected state %lu. This state will NOT be processed", __func__, state);
+        ALOGW("%s: Consumed unexpected state %lu. Canceling just in case", __func__, state);
 
-    return false;
+    return true;
 }
 
 bool WorkerThread::MoveToState(AsyncState nextState) {
