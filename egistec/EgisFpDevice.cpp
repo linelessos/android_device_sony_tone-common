@@ -4,7 +4,9 @@
 #include <poll.h>
 #include <string.h>
 #include <unistd.h>
-#include "FormatException.hpp"
+#include <FormatException.hpp>
+
+namespace egistec {
 
 struct ioctl_cmd {
     int interurpt_mode;
@@ -58,10 +60,11 @@ bool EgisFpDevice::WaitInterrupt(int timeout) const {
     return rc && pfd.revents & POLLIN;
 }
 
-int EgisFpDevice::GetDescriptor() const {
+int EgisFpDevice::GetFd() const {
     return mFd;
 }
 
+#ifdef USE_FPC_NILE
 FpHwId EgisFpDevice::GetHwId() const {
     FpHwId id;
     int rc = ioctl(mFd, ET51X_IOCRHWTYPE, &id);
@@ -69,3 +72,6 @@ FpHwId EgisFpDevice::GetHwId() const {
         throw FormatException("Failed to determine HW id: %d", rc);
     return id;
 }
+#endif
+
+}  // namespace egistec

@@ -8,6 +8,8 @@
 #include "QSEEKeymasterTrustlet.h"
 #include "QSEETrustlet.h"
 
+namespace egistec::nile {
+
 typedef struct {
     int qty;
     int corner_count;
@@ -343,3 +345,5 @@ class EGISAPTrustlet : public QSEETrustlet {
     int ClearChallenge();
     int SetMasterKey(const MasterKey &);
 };
+
+}  // namespace egistec::nile

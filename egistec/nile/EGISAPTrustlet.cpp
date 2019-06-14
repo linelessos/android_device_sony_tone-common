@@ -6,6 +6,8 @@
 // #define LOG_NDEBUG 0
 #include <log/log.h>
 
+namespace egistec::nile {
+
 void log_hex(const char *data, int length) {
     if (length <= 0 || data == NULL)
         return;
@@ -257,7 +259,7 @@ int EGISAPTrustlet::GetFingerList(std::vector<uint32_t> &list) {
     if (rc)
         return rc;
     list.clear();
-    list.resize(extraIn.number_of_prints);
+    list.reserve(extraIn.number_of_prints);
     ALOGD("GetFingerList reported %d fingers", extraOut.number_of_prints);
     std::copy(extraOut.finger_list, extraOut.finger_list + extraOut.number_of_prints, std::back_inserter(list));
     return 0;
@@ -304,3 +306,5 @@ int EGISAPTrustlet::SetMasterKey(const MasterKey &key) {
 
     return SendExtraCommand(lockedBuffer, ExtraCommand::SetMasterKey);
 }
+
+}  // namespace egistec::nile

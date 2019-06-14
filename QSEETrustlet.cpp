@@ -7,7 +7,7 @@
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC QSEETrustlet"
-#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #include <log/log.h>
 
 #ifndef QSEE_LIBRARY
@@ -19,6 +19,7 @@ void *QSEETrustlet::libHandle = nullptr;
 QSEETrustlet::start_app_def QSEETrustlet::start_app = nullptr;
 QSEETrustlet::shutdown_app_def QSEETrustlet::shutdown_app = nullptr;
 QSEETrustlet::send_cmd_def QSEETrustlet::send_cmd = nullptr;
+QSEETrustlet::send_modified_cmd_def QSEETrustlet::send_modified_cmd = nullptr;
 
 QSEETrustlet::QSEETrustlet(const char *app_name, uint32_t shared_buffer_size, const char *path) {
     EnsureInitialized();
@@ -68,6 +69,12 @@ void QSEETrustlet::EnsureInitialized() {
         ALOGE("Error loading QSEECom_send_cmd: %s\n", strerror(errno));
         throw FormatException("Failed to load QSEECom_send_cmd!");
     }
+
+    send_modified_cmd = (send_modified_cmd_def)dlsym(libHandle, "QSEECom_send_modified_cmd");
+    if (send_modified_cmd == nullptr) {
+        ALOGE("Error loading QSEECom_send_modified_cmd: %s\n", strerror(errno));
+        throw FormatException("Failed to load QSEECom_send_modified_cmd!");
+    }
 }
 
 QSEETrustlet::LockedIONBuffer QSEETrustlet::GetLockedBuffer() {
@@ -110,4 +117,8 @@ const void *QSEETrustlet::LockedIONBuffer::operator*() const {
 
 int QSEETrustlet::SendCommand(const void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len) {
     return send_cmd(mHandle, send_buf, sbuf_len, rcv_buf, rbuf_len);
+}
+
+int QSEETrustlet::SendModifiedCommand(const void *send_buf, uint32_t sbuf_len, void *rcv_buf, uint32_t rbuf_len, QSEECom_ion_fd_info *ifd_data) {
+    return send_modified_cmd(mHandle, send_buf, sbuf_len, rcv_buf, rbuf_len, ifd_data);
 }

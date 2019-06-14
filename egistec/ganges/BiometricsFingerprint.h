@@ -6,29 +6,29 @@
 
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprint.h>
 
+#include <WorkerThread.h>
+#include <egistec/EgisFpDevice.h>
 #include <array>
-#include "EgisOperationLoops.h"
+#include "EGISAPTrustlet.h"
 #include "QSEEKeymasterTrustlet.h"
 
-namespace android {
-namespace hardware {
-namespace biometrics {
-namespace fingerprint {
-namespace V2_1 {
-namespace implementation {
+namespace egistec::ganges {
 
 using ::android::sp;
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintError;
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprintClientCallback;
 using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
-struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
+struct BiometricsFingerprint : public IBiometricsFingerprint, public WorkHandler {
    public:
-    BiometricsFingerprint_efp(EgisFpDevice &&);
+    BiometricsFingerprint(EgisFpDevice &&);
 
     // Methods from ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint follow.
     Return<uint64_t> setNotify(const sp<IBiometricsFingerprintClientCallback> &clientCallback) override;
@@ -43,14 +43,30 @@ struct BiometricsFingerprint_efp : public IBiometricsFingerprint {
     Return<RequestStatus> authenticate(uint64_t operationId, uint32_t gid) override;
 
    private:
+    EGISAPTrustlet mTrustlet;
+    EgisFpDevice mDev;
     MasterKey mMasterKey;
-    uint32_t mGid;
-    EgisOperationLoops loops;
+    sp<IBiometricsFingerprintClientCallback> mClientCallback;
+    std::mutex mClientCallbackMutex;
+    uint32_t mGid = -1;
+    WorkerThread mWt;
+
+    int mEnrollTimeout = -1;
+    uint32_t mNewPrintId = -1;
+    uint64_t mEnrollChallenge = 0;
+
+    int64_t mOperationId;
+
+    // WorkHandler implementations:
+    void AuthenticateAsync() override;
+    void EnrollAsync() override;
+    void OnEnterIdle() override;
+
+    void NotifyAcquired(FingerprintAcquiredInfo);
+    void NotifyAuthenticated(uint32_t fid, const hw_auth_token_t &hat);
+    void NotifyEnrollResult(uint32_t fid, uint32_t remaining);
+    void NotifyError(FingerprintError);
+    void NotifyRemove(uint32_t fid, uint32_t remaining);
 };
 
-}  // namespace implementation
-}  // namespace V2_1
-}  // namespace fingerprint
-}  // namespace biometrics
-}  // namespace hardware
-}  // namespace android
+}  // namespace egistec::ganges

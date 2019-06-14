@@ -1,10 +1,13 @@
 #pragma once
 
+#include <WorkerThread.h>
 #include <android/hardware/biometrics/fingerprint/2.1/IBiometricsFingerprintClientCallback.h>
+#include <egistec/EgisFpDevice.h>
 #include <sys/eventfd.h>
 #include <mutex>
 #include "EGISAPTrustlet.h"
-#include "EgisFpDevice.h"
+
+namespace egistec::nile {
 
 using ::android::sp;
 using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
@@ -15,38 +18,19 @@ using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint
  * External wrapper class containing TZ communication logic
  * (Separated from datastructural/architectural choices).
  */
-class EgisOperationLoops : public EGISAPTrustlet {
-    enum class AsyncState : eventfd_t {
-        Idle = 0,
-        Cancel = 1,
-        Authenticating = 2,
-        Enrolling = 4,
-    };
-
-    enum class WakeupReason {
-        Timeout,
-        Event,
-        Finger,  // Hardware
-    };
-
+class EgisOperationLoops : public EGISAPTrustlet, public WorkHandler {
     const uint64_t mDeviceId;
-    uint32_t mGid;
+    EgisFpDevice mDev;
     sp<IBiometricsFingerprintClientCallback> mClientCallback;
     std::mutex mClientCallbackMutex;
-    EgisFpDevice mDev;
+    uint32_t mGid;
     uint64_t mAuthenticatorId;
-
-    AsyncState currentState = AsyncState::Idle;
-    int epoll_fd;
-    int event_fd;
-    pthread_t thread;
+    WorkerThread mWt;
 
    public:
     EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&);
 
    private:
-    static void *ThreadStart(void *);
-    void RunThread();
     void ProcessOpcode(const command_buffer_t &);
     int ConvertReturnCode(int);
     /**
@@ -55,9 +39,6 @@ class EgisOperationLoops : public EGISAPTrustlet {
      * @return True when an error occured.
      */
     bool ConvertAndCheckError(int &, EGISAPTrustlet::API &);
-    WakeupReason WaitForEvent(int timeoutSec = -1);
-    bool MoveToState(AsyncState);
-    AsyncState ReadState();
     /**
      * Atomically check if the current operation is requested to cancel.
      * If cancelled, TZ cancel will be invoked and the service will be
@@ -90,9 +71,10 @@ class EgisOperationLoops : public EGISAPTrustlet {
      */
     FingerprintError HandleMainStep(command_buffer_t &, int timeoutSec = -1);
 
+    // WorkHandler implementations:
     // These should run asynchronously from HAL calls:
-    void EnrollAsync();
-    void AuthenticateAsync();
+    void EnrollAsync() override;
+    void AuthenticateAsync() override;
 
    public:
     uint64_t GetAuthenticatorId();
@@ -106,3 +88,5 @@ class EgisOperationLoops : public EGISAPTrustlet {
     int Enroll(const hw_auth_token_t &, uint32_t timeoutSec);
     int Authenticate(uint64_t challenge);
 };
+
+}  // namespace egistec::nile

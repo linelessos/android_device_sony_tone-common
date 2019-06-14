@@ -27,15 +27,11 @@
 
 #include "android-base/macros.h"
 
-namespace android {
-namespace hardware {
-namespace biometrics {
-namespace fingerprint {
-namespace V2_1 {
-namespace implementation {
+namespace fpc {
 
-using RequestStatus =
-        android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInfo;
+using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintError;
+using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
 BiometricsFingerprint *BiometricsFingerprint::sInstance = nullptr;
 
@@ -633,9 +629,4 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
         mClientCallback->onError(devId, FingerprintError::ERROR_HW_UNAVAILABLE, 0);
 }
 
-} // namespace implementation
-}  // namespace V2_1
-}  // namespace fingerprint
-}  // namespace biometrics
-}  // namespace hardware
-}  // namespace android
+}  // namespace fpc

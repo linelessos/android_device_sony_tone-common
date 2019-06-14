@@ -34,18 +34,14 @@ extern "C" {
     #include "fpc_imp.h"
 }
 
-namespace android {
-namespace hardware {
-namespace biometrics {
-namespace fingerprint {
-namespace V2_1 {
-namespace implementation {
+namespace fpc {
 
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
 using ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprintClientCallback;
 using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::hidl_string;
 using ::android::sp;
@@ -118,11 +114,6 @@ private:
     sony_fingerprint_device_t *mDevice;
 };
 
-}  // namespace implementation
-}  // namespace V2_1
-}  // namespace fingerprint
-}  // namespace biometrics
-}  // namespace hardware
-}  // namespace android
+}  // namespace fpc
 
 #endif  // ANDROID_HARDWARE_BIOMETRICS_FINGERPRINT_V2_1_BIOMETRICSFINGERPRINT_H

@@ -17,77 +17,11 @@
 #define LOG_NDEBUG 0
 #include <log/log.h>
 
+namespace egistec::nile {
+
 using ::android::hardware::hidl_vec;
 
-EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : mDeviceId(deviceId), mDev(std::move(dev)), mAuthenticatorId(GetRand64()) {
-    event_fd = eventfd((eventfd_t)AsyncState::Idle, EFD_NONBLOCK);
-    if (event_fd < 0)
-        throw FormatException("Failed to create eventfd: %s", strerror(errno));
-    epoll_fd = epoll_create1(0);
-    if (epoll_fd < 0)
-        throw FormatException("Failed to create epoll: %s", strerror(errno));
-
-    struct epoll_event ev = {
-        .data.fd = event_fd,
-        .events = EPOLLIN,
-    };
-    int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, event_fd, &ev);
-    if (rc)
-        throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
-    ev = {
-        .data.fd = mDev.GetDescriptor(),
-        .events = EPOLLIN,
-    };
-    rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, ev.data.fd, &ev);
-    if (rc)
-        throw FormatException("Failed to add eventfd to epoll: %s", strerror(errno));
-
-    rc = pthread_create(&thread, NULL, ThreadStart, this);
-    if (rc)
-        throw FormatException("Failed to start pthread: %d %s", rc, strerror(errno));
-}
-
-void *EgisOperationLoops::ThreadStart(void *arg) {
-    auto instance = static_cast<EgisOperationLoops *>(arg);
-    instance->RunThread();
-    return nullptr;
-}
-
-void EgisOperationLoops::RunThread() {
-    ALOGD("Async thread up");
-    for (;;) {
-        // NOTE: Not using WaitForEvent() here, because we are not interested
-        // in wakeups from the fp device, only in events.
-        struct pollfd pfd = {
-            .fd = event_fd,
-            .events = POLLIN,
-        };
-        int cnt = poll(&pfd, 1, -1);
-        if (cnt <= 0) {
-            ALOGW("Infinite poll returned with %d", cnt);
-            continue;
-        }
-
-        auto nextState = ReadState();
-        currentState = nextState;
-        switch (nextState) {
-            case AsyncState::Idle:
-                ALOGW("Unexpected AsyncState %lu", nextState);
-                break;
-            case AsyncState::Cancel:
-                // Nothing in progress - still notify that the current operation was cancelled.
-                ALOGW("Unexpected AsyncState::Cancel - nothing in progress");
-                NotifyError(FingerprintError::ERROR_CANCELED);
-                break;
-            case AsyncState::Authenticating:
-                AuthenticateAsync();
-                break;
-            case AsyncState::Enrolling:
-                EnrollAsync();
-                break;
-        }
-        currentState = AsyncState::Idle;
-    }
+EgisOperationLoops::EgisOperationLoops(uint64_t deviceId, EgisFpDevice &&dev) : mDeviceId(deviceId), mDev(std::move(dev)), mAuthenticatorId(GetRand64()), mWt(this, mDev.GetFd()) {
 }
 
 void EgisOperationLoops::ProcessOpcode(const command_buffer_t &cmd) {
@@ -145,83 +79,9 @@ bool EgisOperationLoops::ConvertAndCheckError(int &rc, EGISAPTrustlet::API &lock
     return true;
 }
 
-EgisOperationLoops::WakeupReason EgisOperationLoops::WaitForEvent(int timeoutSec) {
-    constexpr auto EVENT_COUNT = 2;
-    struct epoll_event events[EVENT_COUNT];
-    ALOGD("%s: TimeoutSec = %d", __func__, timeoutSec);
-    int cnt = epoll_wait(epoll_fd, events, EVENT_COUNT, 1000 * timeoutSec);
-
-    if (cnt < 0) {
-        ALOGE("%s: epoll_wait failed: %s", __func__, strerror(errno));
-        // Let the current operation continue as if nothing happened:
-        return WakeupReason::Timeout;
-    }
-
-    if (!cnt) {
-        ALOGD("%s: WakeupReason = Timeout", __func__);
-        return WakeupReason::Timeout;
-    }
-
-    // Control events have priority over finger events, since
-    // this is probably a request to cancel the current operation.
-    for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == event_fd && events[ei].events & EPOLLIN) {
-            ALOGD("%s: WakeupReason = Event", __func__);
-            return WakeupReason::Event;
-        }
-
-    for (auto ei = 0; ei < cnt; ++ei)
-        if (events[ei].data.fd == mDev.GetDescriptor() && events[ei].events & EPOLLIN) {
-            ALOGD("%s: WakeupReason = Finger", __func__);
-            return WakeupReason::Finger;
-        }
-
-    throw FormatException("Invalid fd source!");
-}
-
-bool EgisOperationLoops::MoveToState(AsyncState nextState) {
-    ALOGD("Attempting to move to state %lu", nextState);
-    // TODO: This is racy (eg. does not look at in-flight state),
-    // but it does not matter because async operations are not supposed to be
-    // invoked concurrently (how can a device run any combination of authenticate or
-    // enroll simultaneously??). The thread will simply reject it in that case.
-
-    // Currently, the service that uses this HAL (FingerprintService.java) calls cancel() in
-    // such a case, and only starts the next operation upon receiving FingerprintError::ERROR_CANCELED.
-
-    if (nextState != AsyncState::Cancel && currentState != AsyncState::Idle) {
-        ALOGW("Thread already in state %lu, refusing to move to %lu", currentState, nextState);
-        return false;
-    }
-
-    int rc = eventfd_write(event_fd, (eventfd_t)nextState);
-    if (rc) {
-        ALOGE("Failed to write next state to eventfd: %s", strerror(errno));
-        return false;
-    }
-    return true;
-}
-
-EgisOperationLoops::AsyncState EgisOperationLoops::ReadState() {
-    eventfd_t requestedState;
-    int rc = eventfd_read(event_fd, &requestedState);
-    if (rc) {
-        // This is very common when no state is available (read returns 0 bytes when the state is 0).
-        // ALOGE("Failed to read next state from eventfd: %s", strerror(errno));
-        return AsyncState::Idle;
-    }
-    return static_cast<AsyncState>(requestedState);
-}
-
 bool EgisOperationLoops::CheckAndHandleCancel(EGISAPTrustlet::API &lockedBuffer) {
-    auto requestedState = static_cast<eventfd_t>(ReadState());
-    if (requestedState & ~static_cast<eventfd_t>(AsyncState::Cancel))
-        // The call to eventfd_read consumed an (unexpected and incorrect)
-        // state change; warn if that happens.
-        ALOGW("%s: Ignoring requested state %lu", __func__, requestedState);
-
-    auto cancelled = requestedState & static_cast<eventfd_t>(AsyncState::Cancel);
-    ALOGV("%s: %lu", __func__, cancelled);
+    auto cancelled = mWt.IsCanceled();
+    ALOGV("%s: %d", __func__, cancelled);
     if (cancelled)
         RunCancel(lockedBuffer);
     return cancelled;
@@ -331,7 +191,7 @@ void EgisOperationLoops::NotifyBadImage(int reason) {
 FingerprintError EgisOperationLoops::HandleMainStep(command_buffer_t &cmd, int timeoutSec) {
     switch (cmd.step) {
         case Step::WaitFingerprint: {
-            auto reason = WaitForEvent(timeoutSec);
+            auto reason = mWt.WaitForEvent(timeoutSec);
             switch (reason) {
                 case WakeupReason::Timeout:
                     // Return timeout: this notifies the service and stops the current loop.
@@ -582,7 +442,7 @@ void EgisOperationLoops::AuthenticateAsync() {
           result.template_cnt,
           result.capture_time,
           result.identify_time);
-    ALOGD("hmac timestamp: %ld secure_user_id: %ld ", result.hmac_timestamp, result.secure_user_id);
+    ALOGD("hmac timestamp: %lu secure_user_id: %lu ", result.hmac_timestamp, result.secure_user_id);
 
     // Finalize challenge buffer by filling in the cryptographic response:
     mCurrentChallenge.timestamp = result.hmac_timestamp;
@@ -671,7 +531,7 @@ int EgisOperationLoops::Prepare() {
 bool EgisOperationLoops::Cancel() {
     ALOGI("Requesting thread to cancel current operation...");
     // Always let the thread handle cancel requests to prevent concurrency issues.
-    return MoveToState(AsyncState::Cancel);
+    return mWt.MoveToState(AsyncState::Cancel);
 }
 
 int EgisOperationLoops::Enumerate() {
@@ -726,7 +586,7 @@ int EgisOperationLoops::Enroll(const hw_auth_token_t &hat, uint32_t timeoutSec) 
         goto error;
     }
 
-    rc = !MoveToState(AsyncState::Enrolling);
+    rc = !mWt.MoveToState(AsyncState::Enroll);
     if (!rc)
         return 0;
 
@@ -751,7 +611,7 @@ int EgisOperationLoops::Authenticate(uint64_t challenge) {
         goto error;
     }
 
-    rc = !MoveToState(AsyncState::Authenticating);
+    rc = !mWt.MoveToState(AsyncState::Authenticate);
     if (!rc)
         return 0;
 
@@ -760,3 +620,5 @@ error:
     NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
     return rc;
 }
+
+}  // namespace egistec::nile
