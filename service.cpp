@@ -29,7 +29,7 @@ using android::hardware::configureRpcThreadpool;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint;
 
-using FPCHAL = android::hardware::biometrics::fingerprint::V2_1::implementation::BiometricsFingerprint;
+using FPCHAL = ::fpc::BiometricsFingerprint;
 using NileHAL = ::egistec::nile::BiometricsFingerprint;
 using GangesHAL = ::egistec::ganges::BiometricsFingerprint;
 
