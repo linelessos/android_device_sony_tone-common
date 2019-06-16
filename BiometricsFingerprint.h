@@ -104,7 +104,7 @@ private:
     //Auth / Enroll thread functions
     static void * worker_thread(void *args);
     static enum worker_state getNextState(sony_fingerprint_device_t* sdev);
-    static bool isCanceled(sony_fingerprint_device_t *sdev);
+    static bool isEventAvailable(sony_fingerprint_device_t *sdev);
     static bool setState(sony_fingerprint_device_t* sdev, enum worker_state state);
     void process_enroll(sony_fingerprint_device_t *sdev);
     void process_auth(sony_fingerprint_device_t *sdev);

@@ -334,19 +334,22 @@ enum worker_state BiometricsFingerprint::getNextState(sony_fingerprint_device_t*
     return state;
 }
 
-bool BiometricsFingerprint::isCanceled(sony_fingerprint_device_t *sdev) {
-    enum worker_state state = getNextState(sdev);
+bool BiometricsFingerprint::isEventAvailable(sony_fingerprint_device_t *sdev) {
+    struct epoll_event event;
 
-    if (state == STATE_CANCEL)
-    {
-        ALOGI("%s : Operation canceled", __func__);
-        return true;
+    // 0 = do not block at all:
+    int cnt = epoll_wait(sdev->worker.epoll_fd, &event, 1, 0);
+
+    if (cnt < 0) {
+        ALOGE("Failed polling eventfd: %d", cnt);
+        return cnt;
     }
 
-    if (state != STATE_IDLE)
-        ALOGW("%s : Unexpected state %d", __func__, state);
+    bool available = cnt > 0;
+    if (available)
+        ALOGI("%s : true", __func__);
 
-    return false;
+    return available;
 }
 
 bool BiometricsFingerprint::setState(sony_fingerprint_device_t* sdev, enum worker_state state) {
@@ -412,7 +415,6 @@ void * BiometricsFingerprint::worker_thread(void *args) {
                 thread_running = false;
                 break;
             case STATE_CANCEL:
-                ALOGW("%s : Unexpected STATE_CANCEL", __func__);
                 break;
             default:
                 ALOGI("%s : UNKNOWN", __func__);
@@ -455,7 +457,7 @@ void BiometricsFingerprint::process_enroll(sony_fingerprint_device_t *sdev) {
     while((status = fpc_capture_image(sdev->fpc)) >= 0) {
         ALOGD("%s : Got Input status=%d", __func__, status);
 
-        if (isCanceled(sdev)) {
+        if (isEventAvailable(sdev)) {
             sdev->worker.running_state = STATE_IDLE;
             mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
@@ -538,7 +540,7 @@ void BiometricsFingerprint::process_auth(sony_fingerprint_device_t *sdev) {
     while((status = fpc_capture_image(sdev->fpc)) >= 0 ) {
         ALOGV("%s : Got Input with status %d", __func__, status);
 
-        if (isCanceled(sdev)) {
+        if (isEventAvailable(sdev)) {
             sdev->worker.running_state = STATE_IDLE;
             mClientCallback->onError(devId, FingerprintError::ERROR_CANCELED, 0);
             break;
