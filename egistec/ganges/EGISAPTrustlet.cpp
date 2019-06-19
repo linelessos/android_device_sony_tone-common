@@ -222,6 +222,18 @@ int EGISAPTrustlet::SetWorkMode(uint32_t workMode) {
     return SendCommand(CommandId::SetWorkMode, workMode);
 }
 
+int EGISAPTrustlet::UninitializeAlgo() {
+    return SendCommand(CommandId::UninitializeAlgo);
+}
+
+int EGISAPTrustlet::UninitializeSdk() {
+    return SendCommand(CommandId::UninitializeSdk);
+}
+
+int EGISAPTrustlet::UninitializeSensor() {
+    return SendCommand(CommandId::UninitializeSensor);
+}
+
 uint64_t EGISAPTrustlet::GetAuthenticatorId() {
     TypedIonBuffer<uint64_t> id;
     auto api = GetLockedAPI();
@@ -235,8 +247,6 @@ uint64_t EGISAPTrustlet::GetAuthenticatorId() {
              __func__);
     if (api.Base().extra_buffer_size != sizeof(uint64_t))
         return -1;
-
-    ALOGI("%s: id=%#lx", __func__, *id);
 
     return *id;
 }

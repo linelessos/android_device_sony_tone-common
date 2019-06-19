@@ -1,4 +1,5 @@
 #include "QSEEKeymasterTrustlet.h"
+#include <string.h>
 #include "FormatException.hpp"
 
 #define LOG_TAG "FPC QSEEKeymasterTrustlet"
@@ -38,10 +39,18 @@ MasterKey QSEEKeymasterTrustlet::GetKey() {
     ALOGD("Keymaster Response Length: %u\n", ret->length);
     ALOGD("Keymaster Response Offset: %u\n", ret->offset);
 
-    // TODO: Assert !ret->status?
+    LOG_ALWAYS_FATAL_IF(ret->status,
+                        "Failed to retrieve keymaster key: %d",
+                        ret->status);
 
-    if (ret->length != QSEE_KEYMASTER64_MASTER_KEY_SIZE)
-        throw FormatException("Keymaster returned unexpected HAT length!");
+    if (ret->length > QSEE_KEYMASTER64_MASTER_KEY_SIZE)
+        throw FormatException("Keymaster returned too large key, %u > %u!",
+                              ret->length,
+                              QSEE_KEYMASTER64_MASTER_KEY_SIZE);
+    else if (ret->length < QSEE_KEYMASTER64_MASTER_KEY_SIZE)
+        ALOGW("Keymaster returned smaller key than expected, %u < %u",
+              ret->length,
+              QSEE_KEYMASTER64_MASTER_KEY_SIZE);
 
     const auto keyPtr = reinterpret_cast<const char *>((ptrdiff_t)*lockedBuffer + ret->offset);
     MasterKey key;

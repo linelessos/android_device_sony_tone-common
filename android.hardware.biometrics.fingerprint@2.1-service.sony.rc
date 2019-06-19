@@ -5,8 +5,3 @@ service fps_hal /vendor/bin/hw/android.hardware.biometrics.fingerprint@2.1-servi
     class late_start
     user system
     group system input
-
-    # This is a horrible workaround for the stuck TZ application and should be fixed ASAP
-on property:sys.boot_completed=1 && property:ro.board.platform=sdm660
-    stop fps_hal
-    start fps_hal
