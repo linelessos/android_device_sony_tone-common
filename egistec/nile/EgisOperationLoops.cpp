@@ -81,7 +81,7 @@ bool EgisOperationLoops::ConvertAndCheckError(int &rc, EGISAPTrustlet::API &lock
 }
 
 bool EgisOperationLoops::CheckAndHandleCancel(EGISAPTrustlet::API &lockedBuffer) {
-    auto cancelled = mWt.IsCanceled();
+    auto cancelled = mWt.IsEventAvailable();
     ALOGV("%s: %d", __func__, cancelled);
     if (cancelled)
         RunCancel(lockedBuffer);

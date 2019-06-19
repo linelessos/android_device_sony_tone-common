@@ -44,8 +44,8 @@ class WorkerThread {
     void Start();
     void Stop();
 
-    AsyncState ReadState();
-    bool IsCanceled();
+    AsyncState ReadState() const;
+    bool IsEventAvailable() const;
     bool MoveToState(AsyncState);
     WakeupReason WaitForEvent(int timeoutSec = -1);
 };

@@ -67,7 +67,7 @@ void WorkerThread::RunThread() {
                 break;
             }
             case AsyncState::Cancel:
-                ALOGW("Unexpected AsyncState::Cancel - nothing in progress");
+                // Non-zero eventfd state to unblock pollers
                 break;
             case AsyncState::Authenticate:
                 mHandler->AuthenticateAsync();
@@ -96,7 +96,7 @@ void WorkerThread::Stop() {
     thread.join();
 }
 
-AsyncState WorkerThread::ReadState() {
+AsyncState WorkerThread::ReadState() const {
     eventfd_t requestedState;
     AsyncState state = AsyncState::Idle;
 
@@ -108,16 +108,24 @@ AsyncState WorkerThread::ReadState() {
     return state;
 }
 
-bool WorkerThread::IsCanceled() {
-    auto state = ReadState();
-    if (state == AsyncState::Idle)
-        return false;
+bool WorkerThread::IsEventAvailable() const {
+    int cnt;
 
-    if (state != AsyncState::Cancel && state != AsyncState::Stop)
-        // Reading a state consumes it from the eventfd, clearing it.
-        ALOGW("%s: Consumed unexpected state %lu. Canceling just in case", __func__, state);
+    struct pollfd pfd = {
+        .fd = event_fd,
+        .events = POLLIN,
+    };
 
-    return true;
+    // 0 = do not block at all:
+    cnt = poll(&pfd, 1, 0);
+
+    if (cnt < 0) {
+        ALOGE("%s: Failed waiting for epoll: %d", __func__, cnt);
+        return cnt;
+    }
+
+    ALOGD("%s: %d", __func__, cnt > 0);
+    return cnt > 0;
 }
 
 bool WorkerThread::MoveToState(AsyncState nextState) {

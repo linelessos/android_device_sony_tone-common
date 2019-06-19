@@ -269,7 +269,7 @@ void BiometricsFingerprint::AuthenticateAsync() {
     }
 
     while (!done && !rc && !canceled && !timeout) {
-        if (mWt.IsCanceled()) {
+        if (mWt.IsEventAvailable()) {
             canceled = true;
             break;
         }
@@ -465,7 +465,7 @@ void BiometricsFingerprint::EnrollAsync() {
     }
 
     while (percentage_done < 100 && !canceled && !timeout && !rc) {
-        if (mWt.IsCanceled()) {
+        if (mWt.IsEventAvailable()) {
             canceled = true;
             break;
         }
