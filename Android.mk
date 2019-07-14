@@ -1,3 +1,4 @@
+ifeq ($(PRODUCT_PLATFORM_SOD),true)
 ifneq ($(TARGET_DEVICE_NO_FPC), true)
 LOCAL_PATH := $(call my-dir)
 
@@ -68,3 +69,4 @@ LOCAL_CFLAGS += \
 
 include $(BUILD_EXECUTABLE)
 endif
+endif # PRODUCT_PLATFORM_SOD
