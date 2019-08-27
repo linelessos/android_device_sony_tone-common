@@ -539,7 +539,11 @@ void BiometricsFingerprint::EnrollAsync() {
                             // Calculate required number of steps based on reported percentage (without floats):
                             steps_needed = 100 * steps_done / percentage_done;
 
-                        NotifyEnrollResult(mNewPrintId, steps_needed - steps_done);
+                        // Delay the final notify until after we have saved the fingerprint, otherwise
+                        // there might be a race with postEnroll
+                        if (percentage_done < 100) {
+                            NotifyEnrollResult(mNewPrintId, steps_needed - steps_done);
+                        }
                         break;
                     }
                     case ImageResult::Detected1:
@@ -613,6 +617,7 @@ void BiometricsFingerprint::EnrollAsync() {
         NotifyError(FingerprintError::ERROR_UNABLE_TO_PROCESS);
     } else if (percentage_done >= 100) {
         rc = mTrustlet.SaveEnrolledPrint(mGid, mNewPrintId);
+        NotifyEnrollResult(mNewPrintId, 0);
         ALOGE_IF(rc, "%s: Failed to save print, rc = %d", __func__, rc);
     }
 }
