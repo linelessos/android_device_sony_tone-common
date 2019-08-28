@@ -537,7 +537,7 @@ void BiometricsFingerprint::EnrollAsync() {
                         steps_needed = 10;
                         if (percentage_done > 0)
                             // Calculate required number of steps based on reported percentage (without floats):
-                            steps_needed = 100 * steps_done / percentage_done;
+                            steps_needed = (100 * steps_done + percentage_done - 1) / percentage_done;
 
                         // Delay the final notify until after we have saved the fingerprint, otherwise
                         // there might be a race with postEnroll
