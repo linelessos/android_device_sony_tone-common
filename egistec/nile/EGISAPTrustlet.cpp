@@ -53,6 +53,17 @@ EGISAPTrustlet::EGISAPTrustlet() : QSEETrustlet("egisap32", 0x2400) {
         throw FormatException("SendDataInit failed with rc = %d", rc);
 }
 
+bool EGISAPTrustlet::MatchFirmware() {
+    // Execute a seemingly harmless command that returns a length
+    // of zero (probably meaning something entirely different)
+    // on the "new" firmware.
+    uint64_t rand;
+    auto size = GetBlob(ExtraCommand::GetRand64, &rand, sizeof(rand));
+    bool match = size == sizeof(rand);
+    ALOGI("Firmware %s original Nile interface", match ? "matches" : "does not match");
+    return match;
+}
+
 int EGISAPTrustlet::SendCommand(EGISAPTrustlet::API &lockedBuffer) {
     if (lockedBuffer.GetRequest().command == Command::ExtraCommand)
         ALOGD("%s: Sending extra-command %#x", __func__, lockedBuffer.GetRequest().extra_buffer.command);
@@ -131,23 +142,42 @@ int EGISAPTrustlet::SendExtraCommand(ExtraCommand command) {
     return SendExtraCommand(buffer, command);
 }
 
-uint64_t EGISAPTrustlet::CallFor64BitResponse(EGISAPTrustlet::API &lockedBuffer, ExtraCommand command) {
+size_t EGISAPTrustlet::GetBlob(EGISAPTrustlet::API &lockedBuffer, ExtraCommand command, void *data, size_t max_data) {
     const auto &extraOut = lockedBuffer.GetResponse().extra_buffer;
     lockedBuffer.GetRequest().extra_buffer_in_size = 0;
     auto rc = SendExtraCommand(lockedBuffer, command);
+
     if (rc) {
-        // Very unlikely
         ALOGE("%s failed with %d", __func__, rc);
         return -1;
     }
-    if (extraOut.data_size != sizeof(uint64_t)) {
-        // Very unlikely
-        ALOGE("%s returned wrong data size of %d", __func__, extraOut.data_size);
+    if (extraOut.data_size > max_data) {
+        ALOGW("%s returned more data than expected, %d > %zu", __func__, extraOut.data_size, max_data);
+    }
+
+    size_t copied = std::min((size_t)extraOut.data_size, max_data);
+
+    memcpy(data, extraOut.data, copied);
+
+    return copied;
+}
+
+size_t EGISAPTrustlet::GetBlob(ExtraCommand command, void *data, size_t max_data) {
+    auto buffer = GetLockedAPI();
+    return GetBlob(buffer, command, data, max_data);
+}
+
+uint64_t EGISAPTrustlet::CallFor64BitResponse(EGISAPTrustlet::API &lockedBuffer, ExtraCommand command) {
+    uint64_t value;
+    auto size = GetBlob(lockedBuffer, command, &value, sizeof(value));
+
+    if (size != sizeof(value)) {
+        ALOGE("%s: Received unexpected length %zu", __func__, size);
         return -1;
     }
-    auto rand = *reinterpret_cast<const uint64_t *>(extraOut.data);
-    ALOGD("%s: %#lx", __func__, rand);
-    return rand;
+
+    ALOGD("%s: %#lx", __func__, value);
+    return value;
 }
 
 uint64_t EGISAPTrustlet::CallFor64BitResponse(ExtraCommand command) {
