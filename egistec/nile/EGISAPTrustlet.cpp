@@ -151,7 +151,7 @@ size_t EGISAPTrustlet::GetBlob(EGISAPTrustlet::API &lockedBuffer, ExtraCommand c
         ALOGE("%s failed with %d", __func__, rc);
         return -1;
     }
-    if (extraOut.data_size > max_data) {
+    if ((size_t)extraOut.data_size > max_data) {
         ALOGW("%s returned more data than expected, %d > %zu", __func__, extraOut.data_size, max_data);
     }
 
