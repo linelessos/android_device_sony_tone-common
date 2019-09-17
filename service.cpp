@@ -21,6 +21,7 @@
 #include "BiometricsFingerprint.h"
 #include "egistec/ganges/BiometricsFingerprint.h"
 #include "egistec/nile/BiometricsFingerprint.h"
+#include "egistec/nile/EGISAPTrustlet.h"
 
 using android::NO_ERROR;
 using android::sp;
@@ -42,11 +43,26 @@ int main() {
 
 #ifdef USE_FPC_NILE
     auto type = dev.GetHwId();
+    bool is_old_hal;
 
     switch (type) {
         case egistec::FpHwId::Egistec:
             ALOGI("Egistec sensor installed");
-            bio = new NileHAL(std::move(dev));
+
+            {
+                ::egistec::nile::EGISAPTrustlet trustlet;
+                is_old_hal = trustlet.MatchFirmware();
+                // Scope closes trustlet. While this could be reused,
+                // opt for starting fresh in case the command introduces
+                // unexpected state changes.
+            }
+            if (is_old_hal) {
+                ALOGI("Using (old) Nile HAL");
+                bio = new NileHAL(std::move(dev));
+            } else {
+                ALOGI("Using (new) Ganges HAL on Nile");
+                bio = new GangesHAL(std::move(dev));
+            }
             break;
         case egistec::FpHwId::Fpc:
             ALOGI("FPC sensor installed");
