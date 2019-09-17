@@ -10,6 +10,7 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
     $(call all-subdir-cpp-files) \
     QSEEComFunc.c \
+    ion_buffer.c \
     common.c
 
 ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)

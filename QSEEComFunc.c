@@ -39,9 +39,6 @@ static int qsee_load_trustlet(struct qsee_handle_t* qsee_handle,
                               const char *path, const char *fname,
                               uint32_t sb_size);
 char* qsee_error_strings(int err);
-int32_t qcom_km_ion_dealloc(struct qcom_km_ion_info_t *handle);
-int32_t qcom_km_ion_memalloc(struct qcom_km_ion_info_t *handle,
-                             uint32_t size);
 typedef struct {
     void *libHandle;
 } _priv_data_t;
@@ -203,110 +200,6 @@ int qsee_free_handle(struct qsee_handle_t** handle_ptr)
     free(handle);
     *handle_ptr = NULL;
     return 0;
-}
-
-
-int32_t qcom_km_ion_memalloc(struct qcom_km_ion_info_t *handle,
-                             uint32_t size)
-{
-    int32_t ret = 0;
-    int32_t iret = 0;
-    unsigned char *v_addr;
-    struct ion_allocation_data ion_alloc_data;
-    int32_t ion_fd;
-    int32_t rc;
-    struct ion_fd_data ifd_data;
-    struct ion_handle_data handle_data;
-    /* open ION device for memory management
-     * O_DSYNC -> uncached memory
-    */
-    if(handle == NULL) {
-        ALOGE("Error:: null handle received");
-        return -1;
-    }
-    ion_fd  = open("/dev/ion", O_RDONLY | O_DSYNC);
-    if (ion_fd < 0) {
-        ALOGE("Error::Cannot open ION device");
-        return -1;
-    }
-    handle->ion_sbuffer = NULL;
-    handle->ifd_data_fd = 0;
-    /* Size of allocation */
-    ion_alloc_data.len = (size + 4095) & (~4095);
-    /* 4K aligned */
-    ion_alloc_data.align = 4096;
-    /* memory is allocated from EBI heap */
-    ion_alloc_data.heap_id_mask = ION_HEAP(ION_QSECOM_HEAP_ID);
-    /* Set the memory to be uncached */
-    ion_alloc_data.flags = 0;
-    /* IOCTL call to ION for memory request */
-    rc = ioctl(ion_fd, ION_IOC_ALLOC, &ion_alloc_data);
-    if (rc) {
-        ret = -1;
-        goto alloc_fail;
-    }
-
-    ifd_data.handle = ion_alloc_data.handle;
-
-    /* Call MAP ioctl to retrieve the ifd_data.fd file descriptor */
-    rc = ioctl(ion_fd, ION_IOC_MAP, &ifd_data);
-    if (rc) {
-        ret = -1;
-        goto ioctl_fail;
-    }
-    /* Make the ion mmap call */
-    v_addr = (unsigned char *)mmap(NULL, ion_alloc_data.len,
-                                   PROT_READ | PROT_WRITE,
-                                   MAP_SHARED, ifd_data.fd, 0);
-    if (v_addr == MAP_FAILED) {
-        ALOGE("Error::ION MMAP failed");
-        ret = -1;
-        goto map_fail;
-    }
-    handle->ion_fd = ion_fd;
-    handle->ifd_data_fd = ifd_data.fd;
-    handle->ion_sbuffer = v_addr;
-    handle->ion_alloc_handle.handle = ion_alloc_data.handle;
-    handle->sbuf_len = size;
-    return ret;
-map_fail:
-    if (handle->ion_sbuffer != NULL) {
-        iret = munmap(handle->ion_sbuffer, ion_alloc_data.len);
-        if (iret)
-            ALOGE("Error::Failed to unmap memory for load image. ret = %d", ret);
-    }
-ioctl_fail:
-    handle_data.handle = ion_alloc_data.handle;
-    if (handle->ifd_data_fd)
-        close(handle->ifd_data_fd);
-    iret = ioctl(ion_fd, ION_IOC_FREE, &handle_data);
-    if (iret) {
-        ALOGE("Error::ION FREE ioctl returned error = %d",iret);
-    }
-alloc_fail:
-    if (ion_fd > 0)
-        close(ion_fd);
-    return ret;
-}
-
-
-int32_t qcom_km_ion_dealloc(struct qcom_km_ion_info_t *handle)
-{
-    struct ion_handle_data handle_data;
-    int32_t ret = 0;
-    /* Deallocate the memory for the listener */
-    ret = munmap(handle->ion_sbuffer, (handle->sbuf_len + 4095) & (~4095));
-    if (ret) {
-        ALOGE("Error::Unmapping ION Buffer failed with ret = %d", ret);
-    }
-    handle_data.handle = handle->ion_alloc_handle.handle;
-    close(handle->ifd_data_fd);
-    ret = ioctl(handle->ion_fd, ION_IOC_FREE, &handle_data);
-    if (ret) {
-        ALOGE("Error::ION Memory FREE ioctl failed with ret = %d", ret);
-    }
-    close(handle->ion_fd);
-    return ret;
 }
 
 char* qsee_error_strings(int err)

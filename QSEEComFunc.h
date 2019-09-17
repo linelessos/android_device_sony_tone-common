@@ -24,11 +24,10 @@
 #include <sys/mman.h>
 #include <fcntl.h> // open function
 #include <unistd.h> // close function
-#include <linux/msm_ion.h>
 #include "QSEEComAPI.h"
+#include "ion_buffer.h"
 
 // Forward declarations
-struct qcom_km_ion_info_t;
 struct qsee_handle_t;
 
 
@@ -47,8 +46,6 @@ typedef int (*set_bandwidth_def)(struct QSEECom_handle *handle, bool high);
 typedef int (*app_load_query_def)(struct QSEECom_handle *handle, char *app_name);
 
 // Utility functions
-typedef int32_t (*ion_free_def)(struct qcom_km_ion_info_t *handle);
-typedef int32_t (*ion_alloc_def)(struct qcom_km_ion_info_t *handle, uint32_t size);
 typedef int32_t (*load_trustlet_def)(struct qsee_handle_t* qsee_handle, struct QSEECom_handle **clnt_handle,const char *path, const char *fname, uint32_t sb_size);
 
 
@@ -72,14 +69,6 @@ typedef struct qsee_handle_t {
     ion_alloc_def ion_alloc;
     load_trustlet_def load_trustlet;
 } qsee_handle_t;
-
-struct qcom_km_ion_info_t {
-    int32_t ion_fd;
-    int32_t ifd_data_fd;
-    struct ion_handle_data ion_alloc_handle;
-    unsigned char * ion_sbuffer;
-    uint32_t sbuf_len;
-};
 
 int qsee_open_handle(struct qsee_handle_t **handle);
 int qsee_free_handle(struct qsee_handle_t** handle);

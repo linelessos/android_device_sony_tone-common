@@ -1,19 +1,9 @@
 #pragma once
-#include <stdint.h>
-// WARNING: Must include stdint before msm_ion, or it'll miss the size_t definition!
-#include <linux/msm_ion.h>
+
+#include "ion_buffer.h"
 
 class IonBuffer {
-    static constexpr size_t ION_ALIGN = 0x1000;
-    static constexpr size_t ION_ALIGN_MASK = ION_ALIGN - 1;
-
-    size_t mRequestedSize, mSize;
-    int mFd = -1;
-    ion_user_handle_t mHandle = 0;
-    void *mMapped = nullptr;
-
-    static int ion_dev_fd;
-    static int IonDev();
+    qcom_km_ion_info_t ion_info;
 
    public:
     IonBuffer(size_t);
@@ -30,6 +20,8 @@ class IonBuffer {
 
     void *operator()();
     const void *operator()() const;
+
+    static IonBuffer Wrap(int fd, ion_user_handle_t handle, void *buffer);
 };
 
 template <typename T>
