@@ -8,6 +8,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <ion/ion.h>
 #include <string.h>
 #include <sys/cdefs.h>
 #include <sys/ioctl.h>
@@ -19,7 +20,6 @@ __BEGIN_DECLS
 struct qcom_km_ion_info_t {
     int ion_fd;
     int ifd_data_fd;
-    ion_user_handle_t handle;
     unsigned char *ion_sbuffer;
     uint32_t req_len, sbuf_len;
 };
