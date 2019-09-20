@@ -10,6 +10,7 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
     $(call all-subdir-cpp-files) \
     QSEEComFunc.c \
+    ion_buffer.c \
     common.c
 
 ifeq ($(filter-out loire tone,$(SOMC_PLATFORM)),)
@@ -46,14 +47,15 @@ LOCAL_SRC_FILES -= BiometricsFingerprint.cpp
 endif
 
 LOCAL_SHARED_LIBRARIES := \
+    android.hardware.biometrics.fingerprint@2.1 \
     libcutils \
-    liblog \
+    libdl \
+    libhardware \
     libhidlbase \
     libhidltransport \
-    libhardware \
-    libutils \
-    libdl \
-    android.hardware.biometrics.fingerprint@2.1
+    libion \
+    liblog \
+    libutils
 
 LOCAL_CONLYFLAGS := -std=c99
 
