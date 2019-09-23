@@ -229,8 +229,10 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operationId, 
         return RequestStatus::SYS_EFAULT;
     }
     ALOGI("%s: Have %d enrolled fingers", __func__, cnt);
-    if (cnt >= 5)
-        return RequestStatus::SYS_ENOSPC;
+    if (cnt == 0) {
+        ALOGE("Error %s called without enrolled fingerprints!", __func__);
+        return RequestStatus::SYS_EINVAL;
+    }
 
     mOperationId = operationId;
 
