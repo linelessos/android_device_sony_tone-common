@@ -76,9 +76,6 @@ public:
     BiometricsFingerprint();
     ~BiometricsFingerprint();
 
-    // Method to wrap legacy HAL with BiometricsFingerprint class
-    static IBiometricsFingerprint* getInstance();
-
     // Methods from ::android::hardware::biometrics::fingerprint::V2_1::IBiometricsFingerprint follow.
     Return<uint64_t> setNotify(const sp<IBiometricsFingerprintClientCallback>& clientCallback) override;
     Return<uint64_t> preEnroll() override;
@@ -94,7 +91,6 @@ public:
 private:
     static sony_fingerprint_device_t* openHal();
     static Return<RequestStatus> ErrorFilter(int32_t error);
-    static BiometricsFingerprint* sInstance;
 
     // Internal machinery to set the active group
     int __setActiveGroup(uint32_t gid);

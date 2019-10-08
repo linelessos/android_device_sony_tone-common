@@ -33,8 +33,6 @@ using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintAcquiredInf
 using ::android::hardware::biometrics::fingerprint::V2_1::FingerprintError;
 using ::android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
-BiometricsFingerprint *BiometricsFingerprint::sInstance = nullptr;
-
 BiometricsFingerprint::BiometricsFingerprint() : mClientCallback(nullptr), mDevice(nullptr) {
     mDevice = openHal();
     if (!mDevice) {
@@ -44,8 +42,6 @@ BiometricsFingerprint::BiometricsFingerprint() : mClientCallback(nullptr), mDevi
 
     if (!startWorker())
         return;
-
-    sInstance = this; // keep track of the most recent instance
 }
 
 BiometricsFingerprint::~BiometricsFingerprint() {
@@ -267,14 +263,6 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operation_id,
 
     bool success = setState(STATE_AUTH);
     return success ? RequestStatus::SYS_OK : RequestStatus::SYS_EAGAIN;
-}
-
-IBiometricsFingerprint* BiometricsFingerprint::getInstance() {
-    if (!sInstance) {
-        // The constructor will set sInstance.
-        /*sInstance =*/ new BiometricsFingerprint();
-    }
-    return sInstance;
 }
 
 sony_fingerprint_device_t *BiometricsFingerprint::openHal() {
