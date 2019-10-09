@@ -715,13 +715,14 @@ err_t fpc_close(fpc_imp_data_t **data)
 
     fpc_deep_sleep(*data);
 
-    fpc_event_destroy(&ldata->data.event);
-
     ldata->qsee_handle->shutdown_app(&ldata->fpc_handle);
     if (fpc_set_power(&(*data)->event, FPC_PWROFF) < 0) {
         ALOGE("Error stopping device\n");
         return -1;
     }
+
+    fpc_event_destroy(&ldata->data.event);
+
     qsee_free_handle(&ldata->qsee_handle);
     free(ldata);
     *data = NULL;

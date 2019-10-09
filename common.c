@@ -1,10 +1,10 @@
 #include "common.h"
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #if PLATFORM_SDK_VERSION >= 28
 #include <bits/epoll_event.h>
 #endif
@@ -73,7 +73,7 @@ err_t fpc_set_power(const fpc_event_t *event, int poweron)
 
     ret = ioctl(event->dev_fd, FPC_IOCWPREPARE, poweron);
     if (ret < 0) {
-        ALOGE("Error preparing FPC device\n");
+        ALOGE("Failed preparing FPC device (%d) %s", ret, strerror(errno));
         return -1;
     }
 
@@ -87,7 +87,7 @@ err_t fpc_get_power(const fpc_event_t *event)
 
     ret = ioctl(event->dev_fd, FPC_IOCRPREPARE, &reply);
     if (ret < 0) {
-        ALOGE("Error preparing FPC device\n");
+        ALOGE("Failed reading device power state (%d) %s", ret, strerror(errno));
         return -1;
     }
 
