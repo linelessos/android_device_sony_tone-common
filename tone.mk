@@ -466,3 +466,7 @@ PRODUCT_COPY_FILES += \
 
 # WiFi BCM configurations
 $(call inherit-product, hardware/broadcom/wlan/bcmdhd/config/config-bcm.mk)
+
+# Variant linking script
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/releasetools/updater.sh:install/bin/updater.sh
