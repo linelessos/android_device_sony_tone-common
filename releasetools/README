@@ -1,0 +1,21 @@
+==========================================
+SONY OPENDEVICES OEM BINARIES PACKAGE HELP
+==========================================
+
+Direct link to downloads:
+https://developer.sony.com/develop/open-devices/downloads/software-binaries
+
+How to flash? (Free formatwise taken from https://developer.sony.com/develop/open-devices/guides/aosp-build-instructions/build-aosp-nougat-8-1-oreo-4-4)
+
+* Unpack the vendor zip file to obtain the vendor image.
+* unzip SW_binaries_for_Xperia_AOSP_O_MR0_4.4_<release version>_<platform>.zip
+* Connect the device to your computer in Fastboot mode, by pressing volume up while inserting the USB cable. When the device is in Fastboot mode, the LED on the device will be illuminated in blue.
+* On your computer: Flash the vendor image by entering the following commands in a terminal window:
+
+fastboot flash oem SW_binaries_for_Xperia_AOSP_O_MR0_4.4_<release version>_<platform>.img
+
+Disconnect usb, flash rom and have fun!!
+
+Choose-a Website: http://www.choose-a.name/
+Choose-a review: https://review.choose-a.name/
+Choose-a Github: https://github.com/choose-a
