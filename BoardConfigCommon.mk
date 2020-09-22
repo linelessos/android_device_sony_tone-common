@@ -166,6 +166,15 @@ TARGET_RECOVERY_PIXEL_FORMAT := "RGBX_8888"
 TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
+<<<<<<< HEAD   (3940c8 tone: manifest: Add some hal entries)
+=======
+#Releasetools
+TARGET_RELEASETOOLS_EXTENSIONS := $(VENDOR_PATH)/releasetools
+
+# RIL
+TARGET_PROVIDES_QTI_TELEPHONY_JAR := true
+
+>>>>>>> CHANGE (f24e32 tone: releasetools and twrp)
 # Root
 BOARD_ROOT_EXTRA_FOLDERS := odm
 
