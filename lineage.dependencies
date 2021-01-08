@@ -4,7 +4,8 @@
     "target_path": "kernel/sony/msm8996"
   },
   {
-    "repository": "android_packages_resources_devicesettings",
-    "target_path": "packages/resources/devicesettings"
+    "repository": "LineageOS/android_packages_resources_devicesettings",
+    "target_path": "packages/resources/devicesettings",
+    "remote": "gh"
   }
 ]
