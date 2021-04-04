@@ -181,14 +181,11 @@ TARGET_LD_SHIM_LIBS := \
   /system/lib64/lib-imsvideocodec.so|libtone_shim.so
 
 # Wifi
-BOARD_WLAN_DEVICE           := bcmdhd
+BOARD_WLAN_DEVICE           := qcwcn
 BOARD_WPA_SUPPLICANT_DRIVER := NL80211
 BOARD_WPA_SUPPLICANT_PRIVATE_LIB := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
 BOARD_HOSTAPD_DRIVER        := NL80211
 BOARD_HOSTAPD_PRIVATE_LIB   := lib_driver_cmd_$(BOARD_WLAN_DEVICE)
-WIFI_DRIVER_FW_PATH_PARAM   := "/sys/module/bcmdhd/parameters/firmware_path"
-WIFI_DRIVER_FW_PATH_AP      := "/vendor/etc/firmware/wlan/bcmdhd/fw_bcmdhd_apsta.bin"
-WIFI_DRIVER_FW_PATH_STA     := "/vendor/etc/firmware/wlan/bcmdhd/fw_bcmdhd.bin"
 WIFI_HIDL_UNIFIED_SUPPLICANT_SERVICE_RC_ENTRY := true
 WPA_SUPPLICANT_VERSION      := VER_0_8_X
 WIFI_AVOID_IFACE_RESET_MAC_CHANGE := true
