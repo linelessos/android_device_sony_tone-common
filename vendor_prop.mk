@@ -101,7 +101,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # Display (Qualcomm AD)
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.qcom.ad=1 \
-    ro.qcom.ad.calib.data=/system/etc/calib.cfg \
+    ro.qcom.ad.calib.data=/vendor/etc/calib.cfg \
     ro.qcom.ad.sensortype=2 \
     ro.vendor.display.cabl=0
 
