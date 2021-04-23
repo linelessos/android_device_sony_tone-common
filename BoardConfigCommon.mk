@@ -151,6 +151,7 @@ BOARD_ROOT_EXTRA_SYMLINKS := \
     /vendor/firmware_mnt:/firmware \
     /vendor/bt_firmware:/bt_firmware
 TARGET_COPY_OUT_VENDOR := vendor
+TARGET_COPY_OUT_ODM := vendor/odm
 TARGET_USES_MKE2FS := true
 
 # Power
@@ -168,9 +169,6 @@ TARGET_USERIMAGES_USE_F2FS := true
 
 #Releasetools
 TARGET_RELEASETOOLS_EXTENSIONS := $(VENDOR_PATH)/releasetools
-
-# Root
-BOARD_ROOT_EXTRA_FOLDERS := odm
 
 # Security patch level
 VENDOR_SECURITY_PATCH := 2019-05-01
