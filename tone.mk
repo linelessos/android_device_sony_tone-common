@@ -306,12 +306,12 @@ PRODUCT_PACKAGES += \
     netutils-wrapper-1.0
 
 # NFC
-# PRODUCT_PACKAGES += \
-#    android.hardware.nfc@1.1-service \
-#    com.android.nfc_extras \
-#    NfcNci \
-#    SecureElement \
-#    Tag
+PRODUCT_PACKAGES += \
+    android.hardware.nfc@1.1-service \
+    com.android.nfc_extras \
+    NfcNci \
+    SecureElement \
+    Tag
 
 # OMX
 PRODUCT_PACKAGES += \
