@@ -1,22 +1,13 @@
 typeattribute hal_fingerprint_default data_between_core_and_vendor_violators;
 
-# Allow binder communication with hal_idd_default
-binder_call(hal_fingerprint_default, hal_idd_default)
-
 # Allow hal_fingerprint_default to add and find ets_inline_service
 allow hal_fingerprint_default ets_inline_service:hwservice_manager { add find };
 
 # Allow hal_fingerprint_default to add and find fpc_extension_service
 allow hal_fingerprint_default fpc_extension_service:hwservice_manager { add find };
 
-# Allow hal_fingerprint_default to find hal_idd_hwservice
-allow hal_fingerprint_default hal_idd_hwservice:hwservice_manager find;
-
 # Allow hal_fingerprint_default to read and write to etsd_device
-allow hal_fingerprint_default etsd_device:chr_file rw_file_perms;
-
-# Allow hal_fingerprint_default to read and write to tee_device
-allow hal_fingerprint_default tee_device:chr_file rw_file_perms;
+allow hal_fingerprint_default sysfs_fingerprint:chr_file rw_file_perms;
 
 # Allow hal_fingerprint_default to read, write and create files in fingerprintd_data_file
 allow hal_fingerprint_default fingerprintd_data_file:file create_file_perms;
@@ -31,3 +22,6 @@ r_dir_file(hal_fingerprint_default, firmware_file)
 
 # Allow hal_fingerprint_default to read battery temperature
 r_dir_file(hal_fingerprint_default, sysfs_battery_supply)
+
+allow sysfs_fingerprint tmpfs:filesystem associate;
+allow hal_fingerprint_default tee_device:chr_file { read write open ioctl }; 

@@ -1,0 +1,8 @@
+allow ueventd qns_sysfs:dir { relabelto };
+
+# /persist/wlan
+allow ueventd persist_wlan_file:dir { r_dir_perms };
+allow ueventd persist_wlan_file:file { r_file_perms };
+
+# Fingerprint
+allow ueventd sysfs_fingerprint:chr_file { setattr create };

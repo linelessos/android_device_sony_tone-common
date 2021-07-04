@@ -57,9 +57,6 @@ function blob_fixup() {
         ;&
     vendor/lib64/libtzdrmgenprov.so)
         ;&
-    vendor/bin/secd)
-        sed -i "s/\/system\/etc\/firmware/\/vendor\/etc\/firmware/g" "${2}"
-        ;;
 
     # kang vulkan from Daisy Q
     vendor/lib/hw/vulkan.msm8996.so | vendor/lib64/hw/vulkan.msm8996.so)

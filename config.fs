@@ -13,9 +13,6 @@ value:2904
 [AID_VENDOR_ADPL_ODL]
 value:2905
 
-[AID_VENDOR_UPDATEMISCTA]
-value:2991
-
 [AID_VENDOR_TRIMAREA]
 value:2993
 
@@ -27,12 +24,6 @@ value:2997
 
 [AID_VENDOR_TA_QMI]
 value:2998
-
-[vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti]
-mode: 0755
-user: AID_BLUETOOTH
-group: AID_BLUETOOTH
-caps: BLOCK_SUSPEND NET_ADMIN
 
 [vendor/bin/pm-service]
 mode: 0755

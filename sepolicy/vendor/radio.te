@@ -1,0 +1,9 @@
+allow radio hal_datafactory_hwservice:hwservice_manager find;
+
+userdebug_or_eng(`
+  allow radio diag_device:chr_file rw_file_perms;
+')
+
+binder_call(radio, cnd)
+binder_call(cnd, radio)
+binder_call(radio, hal_imsrtp)

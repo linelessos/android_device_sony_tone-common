@@ -72,7 +72,7 @@ on fs
     mkdir /mnt/vendor/persist/display 0770 system graphics
     mkdir /mnt/vendor/persist/hvdcp_opti 0770 root system
     mkdir /mnt/vendor/persist/time 0770 system system
-    exec u:r:vendor_toolbox:s0 root audio bluetooth graphics media net_raw system vendor_rfs vendor_rfs_shared -- /vendor/bin/toybox_vendor find /mnt/vendor/persist -type d -exec /vendor/bin/toybox_vendor setfattr -x security.sehash {} \;
+    mkdir /mnt/vendor/persist/battery 0700 system system
     restorecon_recursive /mnt/vendor/persist
 
     # Sony trim area damon
@@ -127,11 +127,9 @@ on post-fs-data
     mkdir /data/vendor/tombstones 0771 system system
     mkdir /data/vendor/tombstones/rfs 0771 system system
 
-    mkdir /data/vendor/ramdump 0771 root system
-    mkdir /data/misc/bluetooth 0770 bluetooth bluetooth
-    mkdir /data/vendor/misc/bluetooth 0770 bluetooth bluetooth
     mkdir /data/vendor/bluetooth 0770 bluetooth bluetooth
-    mkdir /data/vendor/ramdump/bluetooth 0770 bluetooth bluetooth
+    # Create directory for taimport
+    mkdir /data/vendor/etc 0755 root shell
 
     # Create PERFD deamon related dirs
     mkdir /data/misc/perfd 0755 root system
@@ -220,6 +218,11 @@ on post-fs-data
     chown radio radio /data/vendor/radio/copy_complete
     chmod 0660 /data/vendor/radio/copy_complete
 
+    # copy prebuilt qcril.db files always
+    copy /vendor/radio/qcril_database/qcril.db /data/vendor/radio/qcril_prebuilt.db
+    chown radio radio /data/vendor/radio/qcril_prebuilt.db
+    chmod 0660 /data/vendor/radio/qcril_prebuilt.db
+
     # File flags for prebuilt ril db file
     write /data/vendor/radio/prebuilt_db_support 1
     chown radio radio /data/vendor/radio/prebuilt_db_support
@@ -231,25 +234,9 @@ on post-fs-data
     # Fingerprint data folder
     mkdir /data/fpc 0770 system system
 
-    # IDD setup
-    mkdir /idd/lost+found 0770 root root
-    mkdir /idd/output 0755 oem_2987 oem_2987
-    mkdir /idd/socket 0711 oem_2987 oem_2987
-    mkdir /idd/startup-prober 0700 root root
-    restorecon_recursive /idd
-    mkdir /rca/plugins 0750 oem_2987 oem_2987
-    restorecon_recursive /rca
-
     # Sony security daemon
     mkdir /mnt/vendor/persist/pc/ 0770 radio system
     mkdir /data/credmgr 0770 system oem_2996
-    mkdir /data/etc 0755 root shell
-
-    # Sony camera module
-    chown cameraserver camera /sys/devices/sony_camera_0/info
-    chmod 0770 /sys/devices/sony_camera_0/info
-    chown cameraserver camera /sys/devices/sony_camera_1/info
-    chmod 0770 /sys/devices/sony_camera_1/info
 
 on early-boot
     # Set RLIMIT_MEMLOCK to 64MB
@@ -501,6 +488,12 @@ on property:ro.vendor.use_data_netmgrd=false
     # netmgr not supported on specific target
     stop vendor.netmgrd
 
+service charger /system/bin/charger
+    class charger
+    user system
+    group system graphics input
+    capabilities SYS_BOOT
+
 service cnss-daemon /vendor/bin/cnss-daemon -n -l
     class late_start
     user system
@@ -591,6 +584,23 @@ on property:init.svc.surfaceflinger=restarting
 
 on property:slpi.restart=1
     write /sys/kernel/debug/msm_subsys/slpi restart
+
+on charger
+    setprop persist.sys.usb.config mass_storage
+    start vendor.hvdcp_opti
+    setprop sys.usb.configfs 1
+    start vendor.power_off_alarm
+
+service vendor.power_off_alarm /vendor/bin/power_off_alarm
+    class core
+    group system
+    disabled
+    oneshot
+
+service vendor.hvdcp_opti /vendor/bin/hvdcp_opti
+    class main
+    user root
+    group system wakelock
 
 # TA daemon
 service vendor.tad_static /vendor/bin/tad_static /dev/block/bootdevice/by-name/TA 0,16

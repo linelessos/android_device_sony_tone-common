@@ -49,7 +49,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     bluetooth.hfp.client=1 \
     persist.bluetooth.avrcpversion=avrcp16 \
     ro.bluetooth.hfp.ver=1.7 \
-    ro.bt.bdaddr_path=/data/etc/bluetooth_bdaddr \
+    ro.bt.bdaddr_path=/data/vendor/etc/bluetooth_bdaddr \
     persist.vendor.bt.enable.splita2dp=false
 
 # Camera Debug
@@ -187,17 +187,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
     persist.data.df.mux_count=8 \
     persist.data.df.iwlan_mux=9 \
     persist.data.df.dev_name=rmnet_usb0
-
-# SEMC props
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.semc.version.cust=1306-8087 \
-    ro.semc.version.cust_revision=GLOBALDS-LTE3D \
-    ro.semc.version.fs=GENERIC \
-    ro.semc.version.fs_revision=41.3.A.2.247 \
-    ro.semc.version.sw=1306-8087 \
-    ro.semc.version.sw_revision=41.3.A.2.247 \
-    ro.semc.version.sw_type=user \
-    ro.semc.version.sw_variant=GLOBALDS-LTE3D
 
 # TimeService
 PRODUCT_PROPERTY_OVERRIDES += \

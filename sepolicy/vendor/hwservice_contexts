@@ -3,10 +3,6 @@ com.fingerprints.extension::IFingerprintCalibration                             
 com.fingerprints.extension::IFingerprintEngineering                               u:object_r:fpc_extension_service:s0
 com.fingerprints.extension::IFingerprintNavigation                                u:object_r:fpc_extension_service:s0
 com.fingerprints.extension::IFingerprintSensorTest                                u:object_r:fpc_extension_service:s0
-vendor.nxp.nxpnfc::INxpNfc                                                        u:object_r:hal_nxpnfc_hwservice:s0
-vendor.semc.hardware.secd::IDeviceSecurity                                        u:object_r:hal_secd_hwservice:s0
-vendor.semc.system.idd.fallback::IIddFallback                                     u:object_r:hal_idd_fallback_hwservice:s0
-vendor.semc.system.idd::IIdd                                                      u:object_r:hal_idd_hwservice:s0
-vendor.somc.hardware.miscta::IMisctaGlobal                                        u:object_r:hal_miscta_hwservice:s0
-vendor.somc.hardware.wifi::ISomcWifi                                              u:object_r:hal_wifi_hostapd_hwservice:s0
+vendor.nxp.nxpnfc::INxpNfc                                                        u:object_r:hal_nfc_hwservice:s0
+vendor.nxp.nxpese::INxpEse                                                        u:object_r:hal_secure_element_hwservice:s0
 vendor.somc.hardware.radio::ISomcHook                                             u:object_r:somc_hw_radio_hwservice:s0

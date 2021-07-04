@@ -3,5 +3,9 @@ r_dir_file(init, lta_label)
 # Allow init to mount /dsp with adsprpcd_file context
 allow init adsprpcd_file:filesystem { mount relabelfrom relabelto };
 
-# Allow init to mount on idd_rca_dir, idd_root_dir, qns_file
-allow init { idd_rca_dir idd_root_dir qns_file }:dir mounton;
+# Allow init to mount on qns_file
+allow init { qns_file }:dir mounton;
+
+allow init {
+   sysfs_leds
+ }:file setattr;

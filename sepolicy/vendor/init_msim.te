@@ -7,7 +7,11 @@ allow init-qcom-msim-sh vendor_shell_exec:file rx_file_perms;
 allow init-qcom-msim-sh vendor_toolbox_exec:file rx_file_perms;
 
 # Allow init-qcom-msim-sh to read ltalabel_block_device
-allow init-qcom-msim-sh ltalabel_block_device:file r_file_perms;
+allow init-qcom-msim-sh ltalabel_block_device:blk_file {read open getattr};
+allow init-qcom-msim-sh ltalabel_block_device:file rw_file_perms;
 
-# Allow init-qcom-msim-sh to set radio_prop
-set_prop(init-qcom-msim-sh, radio_prop)
+# Allow init-qcom-msim-sh to set vendor_radio_prop
+set_prop(init-qcom-msim-sh, vendor_radio_prop)
+
+allow init-qcom-msim-sh block_device:dir search;
+allow init-qcom-msim-sh ltalabel_block_device:dir search;

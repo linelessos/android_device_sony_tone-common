@@ -1,0 +1,2 @@
+allow hal_bluetooth_default bluetooth_vendor_data_file:file { open read };
+allow hal_bluetooth_default sysfs:file write;

@@ -1,0 +1,2 @@
+allow qti_init_shell vendor_radio_data_file:dir {read search write };
+allow qti_init_shell vendor_radio_data_file:file create_file_perms;

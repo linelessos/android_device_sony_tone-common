@@ -9,3 +9,6 @@ allow tad tad_block_device:blk_file rw_file_perms;
 
 # Allow tad to use BLKGETSIZE ioctl on tad_block_device
 allowxperm tad tad_block_device:blk_file ioctl BLKGETSIZE;
+
+allow tad proc_overcommit_memory:file read;
+allow tad proc_overcommit_memory:file open;

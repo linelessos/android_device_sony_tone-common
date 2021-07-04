@@ -1,28 +1,24 @@
+# data
 type acdbdelta_vendor_data_file, file_type, data_file_type;
+type bluetooth_vendor_data_file, file_type, data_file_type;
+type cnd_core_data_file, file_type, core_data_file_type, data_file_type;
 type debugfs_rmt, debugfs_type, fs_type;
 type debugfs_wlan, debugfs_type, fs_type;
-type cnd_core_data_file, file_type, core_data_file_type, data_file_type;
 type etsd_data_file, file_type, core_data_file_type, data_file_type;
-type idd_crashdata_file, file_type;
-type idd_data_file, file_type;
-type idd_fsck_file, file_type;
-type idd_lostfound_file, file_type;
-type idd_output_file, file_type;
-type idd_rca_dir, file_type;
-type idd_rca_file, file_type;
-
 
 # LTALabel
 type lta_label, fs_type;
-type idd_root_dir, file_type;
-type idd_socket_file, file_type;
 type qns_file, file_type;
 type qns_socket, file_type;
 type qns_sysfs, sysfs_type, fs_type;
-type secd_credmgr_socket, file_type;
-type secd_devsec_socket, file_type;
 type startupprober_file, file_type;
 type sysfs_fpc, sysfs_type, fs_type;
 type sysfs_msm_subsys, sysfs_type, fs_type;
 type sysfs_wifi, sysfs_type, fs_type;
 type tad_socket, file_type;
+
+# Fingerprint
+type sysfs_fingerprint, sysfs_type, fs_type;
+
+# persist
+type persist_wlan_file, file_type;

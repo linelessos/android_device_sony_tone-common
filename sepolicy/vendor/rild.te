@@ -1,15 +1,7 @@
 typeattribute rild data_between_core_and_vendor_violators;
 
-# Allow binder communication with hal_idd_default
-binder_call(rild, hal_idd_default)
-
-# Allow rild to find hal_idd_hwservice
-allow rild hal_idd_hwservice:hwservice_manager find;
 # Allow rild to access tad
 unix_socket_connect(rild, tad, tad)
-
-# Allow binder communication with hal_secd_default
-binder_call(rild, hal_secd_default)
 
 # Allow binder communication with qtidataservices_app
 binder_call(rild, qtidataservices_app)
@@ -17,12 +9,17 @@ binder_call(rild, qtidataservices_app)
 # Allow rild to add somc_hw_radio_hwservice
 allow rild somc_hw_radio_hwservice:hwservice_manager add;
 
-# Allow rild to find hal_secd_hwservice
-allow rild hal_secd_hwservice:hwservice_manager find;
-
 # Allow rild to read, write and create files in radio_data_file
 allow rild radio_data_file:dir rw_dir_perms;
 allow rild radio_data_file:file create_file_perms;
 
 # Allow rild to read files in /persist
 r_dir_file(rild, persist_file)
+
+dontaudit rild tombstone_data_file:dir { search };
+dontaudit rild vendor_file:file { ioctl };
+
+set_prop(rild, system_radio_prop)
+
+allow rild tombstone_data_file:file { open read write };
+allow rild tombstone_data_file:dir search;

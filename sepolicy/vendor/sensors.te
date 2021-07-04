@@ -1,2 +1,10 @@
 # Allow sensors to access tad
 unix_socket_connect(sensors, tad, tad)
+
+allow sensors init:unix_stream_socket { connectto };
+r_dir_file(sensors, sysfs)
+
+allow sensors sysfs_msm_subsys:dir { search read };
+
+allow sensors diag_device:chr_file { read write };
+allow sensors diag_device:chr_file open;
