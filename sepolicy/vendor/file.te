@@ -1,3 +1,11 @@
+#cashsrv
+type cashsvr_socket, file_type;
+type sysfs_rgbc_sensor, fs_type, sysfs_type;
+type sysfs_input_control, sysfs_type, fs_type;
+type sysfs_input_name, sysfs_type, fs_type;
+type sysfs_rgbc_sensor, fs_type, sysfs_type;
+type sysfs_tof_sensor, fs_type, sysfs_type;
+
 # data
 type acdbdelta_vendor_data_file, file_type, data_file_type;
 type bluetooth_vendor_data_file, file_type, data_file_type;
