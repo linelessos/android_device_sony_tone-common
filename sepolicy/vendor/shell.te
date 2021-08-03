@@ -1,0 +1,8 @@
+# Needed for shell to *write* non-core properties:
+# - persist.vendor.cash.*
+# - persist.vendor.powerhal.*
+typeattribute shell system_writes_vendor_properties_violators;
+
+# Allow non-root to tune powerhal and CASH
+set_prop(shell, vendor_cash_prop)
+
