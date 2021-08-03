@@ -12,11 +12,27 @@
 /firmware(/.*)?       u:object_r:firmware_file:s0
 /persist(/.*)?        u:object_r:mnt_vendor_file:s0
 
+# CASH
+# sysfs paths
+# Input device control nodes, mainly for CASH to control power
+/sys/devices/virtual/input/input[0-9]+/chip_id                                               u:object_r:sysfs_input_control:s0
+/sys/devices/virtual/input/input[0-9]+/chip_pow                                              u:object_r:sysfs_input_control:s0
+# Input device names, mainly for CASH to enumerate
+/sys/devices/virtual/input/input[0-9]+/name                                                  u:object_r:sysfs_input_name:s0
+# ToF sensor for CASH
+#/sys/devices/virtual/input/input[0-9]+/enable_ps_sensor                                      u:object_r:sysfs_tof_sensor:s0
+/sys/devices/virtual/input/input[0-9]+/set_use_case                                          u:object_r:sysfs_tof_sensor:s0
+/sys/devices/virtual/input/input[0-9]+/set_ref_spads                                         u:object_r:sysfs_tof_sensor:s0
+/sys/devices/virtual/input/input[0-9]+/set_um_offset                                         u:object_r:sysfs_tof_sensor:s0
+# RGBCIR sensor for CASH
+/sys/devices/virtual/input/input[0-9]+/als_(.*)+                                             u:object_r:sysfs_rgbc_sensor:s0
+
 # Devices
 /dev/block/platform/soc/7464900\.sdhci/by-name/appslog    u:object_r:appslog_block_device:s0
 /dev/block/platform/soc/7464900\.sdhci/by-name/diag       u:object_r:diag_block_device:s0
 /dev/esfp0                                                u:object_r:etsd_device:s0
 /dev/block/platform/soc/7464900\.sdhci/by-name/TA         u:object_r:tad_block_device:s0
+/dev/socket/cashsvr(/.*)?                                 u:object_r:cashsvr_socket:s0
 /dev/socket/qnsbsd                                        u:object_r:qns_socket:s0
 /dev/socket/tad                                           u:object_r:tad_socket:s0
 /dev/fingerprint                                          u:object_r:sysfs_fingerprint:s0
@@ -31,6 +47,7 @@
 
 # Data files
 /data/connectivity(/.*)?                      u:object_r:cnd_core_data_file:s0
+/data/vendor/cashsvr(/.*)?                    u:object_r:cashsvr_vendor_data_file:s0
 /data/vendor/location/xtra/socket_hal_xtra    u:object_r:location_socket:s0
 /data/vendor/location/xtra/socket_xtra        u:object_r:location_socket:s0
 /data/vendor/misc/audio/acdbdata/delta(/.*)?       u:object_r:acdbdelta_vendor_data_file:s0
@@ -64,5 +81,6 @@
 /(vendor|system/vendor)/bin/hw/android\.hardware\.drm@1\.3-service\.clearkey                    u:object_r:hal_drm_clearkey_exec:s0
 
 # vendor services
+/(system/vendor|vendor)/bin/cashsvr                             u:object_r:cashsvr_exec:s0
 /(vendor|system/vendor)/bin/taimport_vendor                     u:object_r:taimport_vendor_exec:s0
 /(vendor|system/vendor)/bin/thermanager                         u:object_r:thermanager_exec:s0
