@@ -182,7 +182,6 @@ VENDOR_SECURITY_PATCH := 2019-05-01
 include device/qcom/sepolicy-legacy-um/SEPolicy.mk
 
 BOARD_SEPOLICY_DIRS += $(VENDOR_PATH)/sepolicy/vendor
-PRODUCT_PRIVATE_SEPOLICY_DIRS += $(VENDOR_PATH)/sepolicy/private
 
 # Shim
 TARGET_LD_SHIM_LIBS := \
