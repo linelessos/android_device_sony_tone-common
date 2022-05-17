@@ -33,5 +33,3 @@ allow vendor_init {
   proc_dirty
   proc
 }:file w_file_perms;
-
-allow vendor_init default_prop:file read;
