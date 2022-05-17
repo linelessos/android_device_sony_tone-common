@@ -19,7 +19,5 @@ r_dir_file(rild, persist_file)
 dontaudit rild tombstone_data_file:dir { search };
 dontaudit rild vendor_file:file { ioctl };
 
-set_prop(rild, system_radio_prop)
-
 allow rild tombstone_data_file:file { open read write };
 allow rild tombstone_data_file:dir search;
