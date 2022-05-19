@@ -196,10 +196,6 @@ PRODUCT_PROPERTY_OVERRIDES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.timed.enable=true
 
-# System
-PRODUCT_PROPERTY_OVERRIDES += \
-    ro.vndk.version=current
-
 # USB
 PRODUCT_PROPERTY_OVERRIDES += \
     sys.usb.controller=6a00000.dwc3
