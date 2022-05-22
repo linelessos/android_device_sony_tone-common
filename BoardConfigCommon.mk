@@ -181,6 +181,9 @@ VENDOR_SECURITY_PATCH := 2019-05-01
 # SELinux
 include device/qcom/sepolicy-legacy-um/SEPolicy.mk
 
+# Sepolicy
+SELINUX_IGNORE_NEVERALLOWS := true
+
 BOARD_SEPOLICY_DIRS += $(VENDOR_PATH)/sepolicy/vendor
 
 # Shim

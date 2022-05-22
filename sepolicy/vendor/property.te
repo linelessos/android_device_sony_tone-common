@@ -1,3 +1,4 @@
+type exported3_default_prop, property_type;
 vendor_internal_prop(audio_gain_prop)
 vendor_internal_prop(semc_version_prop)
 vendor_internal_prop(tareset_notfirstboot_prop)
